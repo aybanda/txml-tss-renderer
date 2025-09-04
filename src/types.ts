@@ -73,3 +73,14 @@ export const SUPPORTED_PROPERTIES = [
 
 export type SupportedProperty = typeof SUPPORTED_PROPERTIES[number];
 
+// Logger interface for capturing generated calls
+export interface Logger {
+  startFrame(): void;
+  endFrame(): void;
+  logImGui(callText: string): void;
+  logDom?(callText: string): void;
+  flush?(): void;
+  getBuffer?(): string[];
+}
+
+

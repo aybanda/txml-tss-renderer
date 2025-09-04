@@ -118,7 +118,8 @@
       </Body>
     </App>
   );
-}</textarea>
+}
+</textarea>
             
             <h3>TSS Styles:</h3>
             <textarea id="tssEditor">:root {
@@ -148,6 +149,11 @@ Checkbox {
 
             
             <div>
+                <label for="backendSelect">Backend:</label>
+                <select id="backendSelect">
+                    <option value="webgl2" selected>WebGL2</option>
+                    <option value="webgpu">WebGPU</option>
+                </select>
                 <button id="renderBtn">Render JSX to ImGui</button>
                 <button id="resetBtn">Reset</button>
                 <div id="status" class="status info">Ready to render</div>
@@ -173,6 +179,7 @@ Checkbox {
         // State for JSX demo
         const state = { count: 0 };
         let renderer = null;
+        let logger = null;
         
         // Console output
         const consoleOutput = document.getElementById('consoleOutput');
@@ -186,8 +193,16 @@ Checkbox {
         // Load TXML/TSS renderer for JSX demo
         async function loadRenderer() {
             try {
-                const { TXMLTSSRenderer, jsx } = await import('../dist/index.js');
-                renderer = new TXMLTSSRenderer();
+                const { TXMLTSSRenderer, DefaultConsoleLogger, jsx } = await import('../dist/index.js');
+                logger = new DefaultConsoleLogger();
+                
+                // Wait for ImGui to be properly initialized before creating renderer
+                if (!ImGui || typeof ImGui === 'function') {
+                    console.log('Waiting for ImGui to be initialized...');
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+                renderer = new TXMLTSSRenderer(logger);
                 
                 // Register event handlers
                 renderer.registerEventHandler('incrementCount', () => {
@@ -244,12 +259,22 @@ Checkbox {
                 canvas.height = 400;
                 console.log('Canvas dimensions set to:', canvas.width, 'x', canvas.height);
                 
-                // Get WebGL context
-                context = canvas.getContext("webgl2");
-                if (!context) {
-                    throw new Error('WebGL2 not supported');
+                // Get selected backend
+                const backendEl = document.getElementById('backendSelect');
+                const backend = backendEl && 'value' in backendEl ? backendEl.value : 'webgl2';
+                if (backend === 'webgpu') {
+                    context = canvas.getContext('webgpu');
+                    if (!context) {
+                        throw new Error('WebGPU not supported');
+                    }
+                    console.log('WebGPU context created');
+                } else {
+                    context = canvas.getContext('webgl2');
+                    if (!context) {
+                        throw new Error('WebGL2 not supported');
+                    }
+                    console.log('WebGL2 context created');
                 }
-                console.log('WebGL2 context created');
                 
                 // Initialize ImGui using the exact working pattern
                 console.log('Initializing ImGui...');
@@ -259,12 +284,24 @@ Checkbox {
                 });
                 console.log('ImGuiImplWeb.Init() completed');
                 
-                // Wait for initialization
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // Wait for ImGui to be properly initialized
+                console.log('Waiting for ImGui to be fully initialized...');
+                await new Promise(resolve => setTimeout(resolve, 500));
                 console.log('ImGui initialization wait completed');
+                
+                // Create ImGui context
+                console.log('Creating ImGui context...');
+                ImGui.CreateContext();
+                ImGui.StyleColorsDark();
+                console.log('ImGui context created');
                 
                 // Load JSX renderer
                 await loadRenderer();
+                
+                // Set ImGui instances in renderer after proper initialization
+                console.log('Setting ImGui instances in renderer...');
+                renderer.setImGui(ImGui, ImGuiImplWeb);
+                console.log('ImGui instances set in renderer');
                 
                 // Set up render loop using the exact working pattern
                 function frame() {
@@ -273,7 +310,7 @@ Checkbox {
                     try {
                         ImGuiImplWeb.BeginRender();
                         
-                        // Render JSX content using direct ImGui calls
+                        // Render JSX content using the library
                         try {
                             const jsxCode = document.getElementById('jsxEditor').value;
                             const tss = document.getElementById('tssEditor').value;
@@ -282,40 +319,12 @@ Checkbox {
                             const txml = jsxToTXML(jsxCode);
                             console.log('Generated TXML:', txml);
                             
-                            // Generate and log ImGui code
-                            const generatedCode = `// Generated ImGui code from JSX:
-ImGui.Begin("JSX ImGui Demo");
-ImGui.Text("JSX rendered to ImGui");
-ImGui.Text("Count: ${state.count}");
-if (ImGui.Button("Increment")) {
-    // incrementCount() called
-}
-ImGui.SameLine();
-if (ImGui.Button("Reset")) {
-    // resetCount() called
-}
-ImGui.End();`;
-                            console.log('Generated ImGui code:', generatedCode);
-                            
-                            // Render JSX content directly to ImGui
-                            ImGui.Begin("JSX ImGui Demo");
-                            ImGui.Text("JSX rendered to ImGui");
-                            ImGui.Text(`Count: ${state.count}`);
-                            
-                            if (ImGui.Button("Increment")) {
-                                state.count++;
-                                console.log('Count incremented via JSX:', state.count);
-                                document.getElementById('status').textContent = `Count: ${state.count}`;
-                                document.getElementById('status').className = 'status success';
+                            // Render via library (logger will emit generated code)
+                            if (ImGui && ImGuiImplWeb) {
+                                renderer.render(txml, tss);
+                            } else {
+                                console.log('ImGui not ready yet, skipping render');
                             }
-                            
-                            ImGui.SameLine();
-                            if (ImGui.Button("Reset")) {
-                                state.count = 0;
-                                console.log('Count reset via JSX');
-                            }
-                            
-                            ImGui.End();
                             
                         } catch (error) {
                             console.error('JSX render error:', error);

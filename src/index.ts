@@ -7,6 +7,7 @@ export { StateManager, createStateManager } from './state-manager.js';
 export { StyleEngine, createStyleEngine } from './style-engine.js';
 export { WidgetRenderers, createWidgetRenderers } from './widget-renderers.js';
 export { jsx, jsxs, Fragment, jsxToTXML } from './jsx-runtime.js';
+export { DefaultConsoleLogger, NoopLogger } from './logger.js';
 
 export type {
   TXMLElement,
@@ -22,6 +23,8 @@ export type {
   SupportedTag,
   SupportedProperty
 } from './types.js';
+
+export type { Logger } from './types.js';
 
 export { TXMLParseError } from './xml-parser.js';
 export { TSSParseError } from './tss-parser.js';
