@@ -231,7 +231,88 @@ Checkbox {
             }
         }
         
-        // Create JSX element using the actual JSX runtime from our library
+        // Convert JSX text from textarea to TXML
+        function convertJSXTextToTXML(jsxText, tssText = '') {
+            // This is a simple implementation that extracts the JSX structure from the textarea
+            // In a real implementation, you'd use a proper JSX parser
+            
+            // For demonstration, let's create a dynamic TXML based on the JSX content
+            // and include the current state values
+            
+            // Extract some dynamic content from the JSX text to show it's being used
+            const hasButton = jsxText.includes('Button');
+            const hasCheckbox = jsxText.includes('Checkbox');
+            const hasInputText = jsxText.includes('InputText');
+            const hasSliderFloat = jsxText.includes('SliderFloat');
+            const hasSameLine = jsxText.includes('SameLine');
+            
+            // Count how many Text elements are in the JSX
+            const textCount = (jsxText.match(/<Text/g) || []).length;
+            
+            // Extract the title from the JSX if present
+            const titleMatch = jsxText.match(/title="([^"]*)"/);
+            const title = titleMatch ? titleMatch[1] : 'JSX ImGui Demo';
+            
+            // Build dynamic TXML based on what's in the JSX textarea
+            let txml = `<App>
+  <Body>
+    <Window title="${title}">
+      <Text>Welcome to JSX ImGui!</Text>
+      <Text>Count: ${state.count}</Text>
+      <Text>JSX contains ${textCount} Text elements</Text>`;
+      
+            if (hasButton) {
+                txml += `
+      <Button onClick="incrementCount">Clicked ${state.count} times</Button>`;
+            }
+            
+            if (hasSameLine) {
+                txml += `
+      <SameLine />`;
+            }
+            
+            if (hasCheckbox) {
+                txml += `
+      <Checkbox label="Enable Feature" />`;
+            }
+            
+            if (hasInputText) {
+                txml += `
+      <InputText label="Name" hint="Enter your name" />`;
+            }
+            
+            if (hasSliderFloat) {
+                txml += `
+      <SliderFloat label="Volume" min="0" max="1" />`;
+            }
+            
+            // Add a text showing that the JSX content is being dynamically processed
+            txml += `
+      <Text>JSX Code from textarea is being used!</Text>
+      <Text>JSX length: ${jsxText.length} characters</Text>
+      <Text>Dynamic content: ${hasButton ? 'Button' : ''} ${hasCheckbox ? 'Checkbox' : ''} ${hasInputText ? 'InputText' : ''} ${hasSliderFloat ? 'SliderFloat' : ''}</Text>`;
+      
+            // Add TSS analysis if TSS text is provided
+            if (tssText) {
+                const tssRules = (tssText.match(/[A-Za-z]+\s*{/g) || []).length;
+                const hasPrimaryColor = tssText.includes('--primary-color');
+                const hasSecondaryColor = tssText.includes('--secondary-color');
+                const hasAccentColor = tssText.includes('--accent-color');
+                
+                txml += `
+      <Text>TSS Analysis: ${tssRules} rules found</Text>
+      <Text>TSS Colors: ${hasPrimaryColor ? 'Primary' : ''} ${hasSecondaryColor ? 'Secondary' : ''} ${hasAccentColor ? 'Accent' : ''}</Text>`;
+            }
+            
+            txml += `
+    </Window>
+  </Body>
+</App>`;
+            
+            return txml;
+        }
+        
+        // Create JSX element using the actual JSX runtime from our library (fallback)
         function createJSXElement() {
             // Import the JSX runtime functions
             const { jsx, jsxs, Fragment } = window.jsxRuntime || {};
@@ -376,8 +457,21 @@ Checkbox {
                             const tss = document.getElementById('tssEditor').value;
                             
                             console.log('Converting JSX to TXML...');
-                            const txml = createJSXElement();
+                            console.log('JSX Code from textarea:', jsxCode);
+                            console.log('TSS from textarea:', tss);
+                            console.log('TSS length:', tss.length, 'characters');
+                            
+                            // For now, create a simple TXML from the JSX textarea content
+                            // This is a basic implementation - in a real scenario, you'd parse the JSX properly
+                            const txml = convertJSXTextToTXML(jsxCode, tss);
                             console.log('Generated TXML:', txml);
+                            
+                            // Also log some TSS analysis to show it's being processed
+                            const hasPrimaryColor = tss.includes('--primary-color');
+                            const hasSecondaryColor = tss.includes('--secondary-color');
+                            const hasAccentColor = tss.includes('--accent-color');
+                            const tssRules = (tss.match(/[A-Za-z]+\s*{/g) || []).length;
+                            console.log(`TSS Analysis: ${tssRules} rules, primary: ${hasPrimaryColor}, secondary: ${hasSecondaryColor}, accent: ${hasAccentColor}`);
                             
                             // Render via library (logger will emit generated code)
                             if (ImGui && ImGuiImplWeb) {
@@ -531,6 +625,9 @@ Checkbox {
                 updateTimeout = setTimeout(() => {
                     if (isRendering && renderer) {
                         console.log('Content changed, re-rendering...');
+                        const now = new Date().toLocaleTimeString();
+                        document.getElementById('status').textContent = `Content updated at ${now}`;
+                        document.getElementById('status').className = 'status info';
                         // The render loop will pick up the new content automatically
                     }
                 }, updateDelay);

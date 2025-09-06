@@ -319,6 +319,7 @@ Checkbox {
                             console.log('Rendering TXML/TSS...');
                             console.log('TXML:', txml);
                             console.log('TSS:', tss);
+                            console.log('TSS length:', tss.length, 'characters');
                             
                             // Render via library (logger will emit generated code)
                             if (ImGui && ImGuiImplWeb) {
@@ -469,6 +470,9 @@ Checkbox {
                 updateTimeout = setTimeout(() => {
                     if (isRendering && renderer) {
                         console.log('Content changed, re-rendering...');
+                        const now = new Date().toLocaleTimeString();
+                        document.getElementById('status').textContent = `Content updated at ${now}`;
+                        document.getElementById('status').className = 'status info';
                         // The render loop will pick up the new content automatically
                     }
                 }, updateDelay);
