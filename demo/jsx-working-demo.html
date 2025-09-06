@@ -176,6 +176,7 @@ Checkbox {
         let animationId = null;
         let context = null;
         let frameCount = 0;
+        let backend = 'webgl2'; // Global backend variable
         
         // State for JSX demo
         const state = { count: 0 };
@@ -262,16 +263,39 @@ Checkbox {
                 
                 // Get selected backend
                 const backendEl = document.getElementById('backendSelect');
-                const backend = backendEl && 'value' in backendEl ? backendEl.value : 'webgl2';
+                backend = backendEl && 'value' in backendEl ? backendEl.value : 'webgl2';
+                
+                let device = null;
+                
                 if (backend === 'webgpu') {
-                    // For WebGPU, we need to use WebGL2 context as fallback
-                    // since jsimgui WebGPU support may not be fully implemented
-                    context = canvas.getContext('webgl2');
-                    if (!context) {
-                        throw new Error('WebGL2 not supported');
+                    // Check WebGPU support
+                    if (!navigator.gpu) {
+                        throw new Error('WebGPU not supported in this browser');
                     }
-                    console.log('WebGPU requested, using WebGL2 context as fallback');
+                    
+                    // Get WebGPU context
+                    context = canvas.getContext('webgpu');
+                    if (!context) {
+                        throw new Error('WebGPU context not supported');
+                    }
+                    
+                    // Request WebGPU adapter and device
+                    const adapter = await navigator.gpu.requestAdapter();
+                    if (!adapter) {
+                        throw new Error('WebGPU adapter not available');
+                    }
+                    
+                    device = await adapter.requestDevice();
+                    
+                    // Configure WebGPU context
+                    context.configure({
+                        device,
+                        format: navigator.gpu.getPreferredCanvasFormat(),
+                    });
+                    
+                    console.log('WebGPU context created and configured');
                 } else {
+                    // WebGL2 backend
                     context = canvas.getContext('webgl2');
                     if (!context) {
                         throw new Error('WebGL2 not supported');
@@ -279,24 +303,28 @@ Checkbox {
                     console.log('WebGL2 context created');
                 }
                 
-                // Initialize ImGui using the exact working pattern
+                // Initialize ImGui with proper backend configuration
                 console.log('Initializing ImGui...');
-                await ImGuiImplWeb.Init({
-                    canvas,
-                    enableDemos: true,
-                });
+                if (backend === 'webgpu') {
+                    await ImGuiImplWeb.Init({
+                        canvas,
+                        device,
+                        enableDemos: true,
+                        backend: 'webgpu'
+                    });
+                } else {
+                    await ImGuiImplWeb.Init({
+                        canvas,
+                        enableDemos: true,
+                        backend: 'webgl2'
+                    });
+                }
                 console.log('ImGuiImplWeb.Init() completed');
                 
                 // Wait for ImGui to be properly initialized
                 console.log('Waiting for ImGui to be fully initialized...');
                 await new Promise(resolve => setTimeout(resolve, 500));
                 console.log('ImGui initialization wait completed');
-                
-                // Create ImGui context
-                console.log('Creating ImGui context...');
-                ImGui.CreateContext();
-                ImGui.StyleColorsDark();
-                console.log('ImGui context created');
                 
                 // Load JSX renderer
                 await loadRenderer();
@@ -354,11 +382,35 @@ Checkbox {
                         // Show the ImGui demo window
                         ImGui.ShowDemoWindow();
                         
-                        // Clear the canvas AFTER ImGui calls but BEFORE EndRender (like the working example)
-                        context.clearColor(0.1, 0.3, 0.1, 1.0);
-                        context.clear(context.COLOR_BUFFER_BIT);
+                        // Clear the canvas if we are webgl; webgpu handles this for us
+                        if (backend === 'webgl2') {
+                            context.clearColor(0.1, 0.3, 0.1, 1.0);
+                            context.clear(context.COLOR_BUFFER_BIT);
+                        }
                         
-                        ImGuiImplWeb.EndRender();
+                        // EndRender with proper parameters for WebGPU
+                        if (backend === 'webgpu') {
+                            // For WebGPU, we need to create a render pass
+                            const commandEncoder = device.createCommandEncoder();
+                            const textureView = context.getCurrentTexture().createView();
+                            
+                            const renderPassDescriptor = {
+                                colorAttachments: [{
+                                    view: textureView,
+                                    clearValue: { r: 0.1, g: 0.3, b: 0.1, a: 1.0 },
+                                    loadOp: 'clear',
+                                    storeOp: 'store',
+                                }],
+                            };
+                            
+                            const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+                            ImGuiImplWeb.EndRender(passEncoder);
+                            passEncoder.end();
+                            
+                            device.queue.submit([commandEncoder.finish()]);
+                        } else {
+                            ImGuiImplWeb.EndRender();
+                        }
                         
                         console.log('JSX ImGui rendered successfully');
                     } catch (error) {
@@ -425,8 +477,10 @@ Checkbox {
             
             // Clear canvas
             const canvas = document.getElementById('canvas');
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (backend === 'webgl2') {
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
             
             // Clear console
             consoleOutput.textContent = 'Console output will appear here...';
