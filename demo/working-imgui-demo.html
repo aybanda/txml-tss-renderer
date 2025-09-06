@@ -162,6 +162,7 @@ Checkbox {
         let context = null;
         let renderer = null;
         let logger = null;
+        let frameCount = 0;
         
         // Console output
         const consoleOutput = document.getElementById('consoleOutput');
@@ -228,11 +229,13 @@ Checkbox {
                 const backendEl = document.getElementById('backendSelect');
                 const backend = backendEl && 'value' in backendEl ? backendEl.value : 'webgl2';
                 if (backend === 'webgpu') {
-                    context = canvas.getContext('webgpu');
+                    // For WebGPU, we need to use WebGL2 context as fallback
+                    // since jsimgui WebGPU support may not be fully implemented
+                    context = canvas.getContext('webgl2');
                     if (!context) {
-                        throw new Error('WebGPU not supported');
+                        throw new Error('WebGL2 not supported');
                     }
-                    console.log('WebGPU context created');
+                    console.log('WebGPU requested, using WebGL2 context as fallback');
                 } else {
                     context = canvas.getContext('webgl2');
                     if (!context) {
@@ -275,6 +278,10 @@ Checkbox {
                     try {
                         ImGuiImplWeb.BeginRender();
                         
+                        // DEBUG: Check frame state
+                        frameCount++;
+                        console.log(`Frame ${frameCount}: Starting render (no NewFrame needed)`);
+                        
                         // Render TXML/TSS content using the library
                         try {
                             const txml = document.getElementById('txmlEditor').value;
@@ -286,7 +293,16 @@ Checkbox {
                             
                             // Render via library (logger will emit generated code)
                             if (ImGui && ImGuiImplWeb) {
+                                console.log('Calling renderer.render()...');
                                 renderer.render(txml, tss);
+                                console.log('renderer.render() completed');
+                                
+                                // Test: Add a simple ImGui call to verify ImGui is working
+                                console.log('Testing basic ImGui call...');
+                                ImGui.Begin("Test Window");
+                                ImGui.Text("Hello from ImGui!");
+                                ImGui.End();
+                                console.log('Basic ImGui call completed');
                             } else {
                                 console.log('ImGui not ready yet, skipping render');
                             }
@@ -303,7 +319,7 @@ Checkbox {
                         // Show the ImGui demo window
                         ImGui.ShowDemoWindow();
                         
-                        // Clear the canvas
+                        // Clear the canvas AFTER ImGui calls but BEFORE EndRender (like the working example)
                         context.clearColor(0.2, 0.4, 0.6, 1.0);
                         context.clear(context.COLOR_BUFFER_BIT);
                         
@@ -383,9 +399,34 @@ Checkbox {
             console.log('Reset complete');
         });
         
+        // Add live updates when content changes
+        function setupLiveUpdates() {
+            const txmlEditor = document.getElementById('txmlEditor');
+            const tssEditor = document.getElementById('tssEditor');
+            
+            let updateTimeout = null;
+            const updateDelay = 500; // 500ms delay after user stops typing
+            
+            function scheduleUpdate() {
+                if (updateTimeout) {
+                    clearTimeout(updateTimeout);
+                }
+                updateTimeout = setTimeout(() => {
+                    if (isRendering && renderer) {
+                        console.log('Content changed, re-rendering...');
+                        // The render loop will pick up the new content automatically
+                    }
+                }, updateDelay);
+            }
+            
+            txmlEditor.addEventListener('input', scheduleUpdate);
+            tssEditor.addEventListener('input', scheduleUpdate);
+        }
+        
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             console.log('TXML/TSS ImGui Demo loaded');
+            setupLiveUpdates();
         });
     </script>
 </body>
