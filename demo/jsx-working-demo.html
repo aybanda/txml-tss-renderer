@@ -195,8 +195,12 @@ Checkbox {
         // Load TXML/TSS renderer for JSX demo
         async function loadRenderer() {
             try {
-                const { TXMLTSSRenderer, DefaultConsoleLogger, jsx } = await import('../dist/index.js');
+                const { TXMLTSSRenderer, DefaultConsoleLogger, jsx, jsxs, Fragment, jsxToTXML } = await import('../dist/index.js');
                 logger = new DefaultConsoleLogger();
+                
+                // Expose JSX runtime on window for use in the demo
+                window.jsxRuntime = { jsx, jsxs, Fragment };
+                window.jsxToTXML = jsxToTXML;
                 
                 // Wait for ImGui to be properly initialized before creating renderer
                 if (!ImGui || typeof ImGui === 'function') {
@@ -227,10 +231,14 @@ Checkbox {
             }
         }
         
-        // Convert JSX to TXML
-        function jsxToTXML(jsxCode) {
-            // Simple JSX to TXML conversion for demo
-            const txml = `<App>
+        // Create JSX element using the actual JSX runtime from our library
+        function createJSXElement() {
+            // Import the JSX runtime functions
+            const { jsx, jsxs, Fragment } = window.jsxRuntime || {};
+            
+            if (!jsx || !jsxs) {
+                console.warn('JSX runtime not available, falling back to TXML');
+                return `<App>
   <Body>
     <Window title="JSX ImGui Demo">
       <Text>JSX rendered to ImGui</Text>
@@ -241,7 +249,23 @@ Checkbox {
     </Window>
   </Body>
 </App>`;
-            return txml;
+            }
+            
+            // Create JSX element using the runtime
+            const jsxElement = jsxs('App', null, [
+                jsxs('Body', null, [
+                    jsxs('Window', { title: 'JSX ImGui Demo' }, [
+                        jsx('Text', null, 'JSX rendered to ImGui'),
+                        jsx('Text', null, `Count: ${state.count}`),
+                        jsx('Button', { onClick: 'incrementCount' }, 'Increment'),
+                        jsx('SameLine', null),
+                        jsx('Button', { onClick: 'resetCount' }, 'Reset')
+                    ])
+                ])
+            ]);
+            
+            // Convert JSX element to TXML string
+            return window.jsxToTXML ? window.jsxToTXML(jsxElement) : 'JSX conversion not available';
         }
         
         // ImGui demo using the exact working pattern
@@ -352,7 +376,7 @@ Checkbox {
                             const tss = document.getElementById('tssEditor').value;
                             
                             console.log('Converting JSX to TXML...');
-                            const txml = jsxToTXML(jsxCode);
+                            const txml = createJSXElement();
                             console.log('Generated TXML:', txml);
                             
                             // Render via library (logger will emit generated code)
