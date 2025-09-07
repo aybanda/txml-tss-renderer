@@ -266,14 +266,35 @@ export class TSSParser {
   }
 
   private skipWhitespace(): void {
-    while (this.pos < this.tss.length && /\s/.test(this.tss[this.pos])) {
-      if (this.tss[this.pos] === '\n') {
-        this.line++;
-        this.column = 1;
+    while (this.pos < this.tss.length) {
+      if (/\s/.test(this.tss[this.pos])) {
+        if (this.tss[this.pos] === '\n') {
+          this.line++;
+          this.column = 1;
+        } else {
+          this.column++;
+        }
+        this.pos++;
+      } else if (this.tss.startsWith('/*', this.pos)) {
+        // Skip CSS comments
+        this.pos += 2;
+        this.column += 2;
+        while (this.pos < this.tss.length && !this.tss.startsWith('*/', this.pos)) {
+          if (this.tss[this.pos] === '\n') {
+            this.line++;
+            this.column = 1;
+          } else {
+            this.column++;
+          }
+          this.pos++;
+        }
+        if (this.tss.startsWith('*/', this.pos)) {
+          this.pos += 2;
+          this.column += 2;
+        }
       } else {
-        this.column++;
+        break;
       }
-      this.pos++;
     }
   }
 

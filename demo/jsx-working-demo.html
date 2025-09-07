@@ -231,84 +231,84 @@ Checkbox {
             }
         }
         
-        // Convert JSX text from textarea to TXML
+        // Load Babel standalone for JSX transform
+        const babelUrl = 'https://unpkg.com/@babel/standalone/babel.min.js';
+        // Attempt to load Babel asynchronously; if not yet available, we fallback and a later frame will use it
+        let Babel = null;
+        (function loadBabel() {
+            try {
+                if ((window).Babel) { Babel = (window).Babel; return; }
+                const babelScript = document.createElement('script');
+                babelScript.src = babelUrl;
+                babelScript.onload = () => { try { Babel = (window).Babel; console.log('Babel loaded for JSX transform'); } catch {} };
+                babelScript.onerror = () => { console.warn('Failed to load Babel, will rely on fallback JSX heuristic'); };
+                document.head.appendChild(babelScript);
+            } catch {}
+        })();
+
+        // Convert JSX text from textarea to TXML using the library runtime when possible
         function convertJSXTextToTXML(jsxText, tssText = '') {
-            // This is a simple implementation that extracts the JSX structure from the textarea
-            // In a real implementation, you'd use a proper JSX parser
-            
-            // For demonstration, let's create a dynamic TXML based on the JSX content
-            // and include the current state values
-            
-            // Extract some dynamic content from the JSX text to show it's being used
+            try {
+                if (window.jsxToTXML && window.jsxRuntime && Babel) {
+                    const { jsx, jsxs, Fragment } = window.jsxRuntime;
+                    
+                    // Create a variadic h function that maps to our jsx/jsxs
+                    const h = (type, props, ...children) => {
+                        if (children.length === 0) {
+                            return jsx(type, props);
+                        } else {
+                            return jsxs(type, props, children);
+                        }
+                    };
+                    
+                    // Transform raw JSX to use our h function
+                    const transformed = Babel.transform(jsxText, {
+                        presets: [['env', { modules: false }]],
+                        plugins: [[Babel.availablePlugins["transform-react-jsx"], { 
+                            pragma: 'h', 
+                            pragmaFrag: 'Fragment' 
+                        }]]
+                    }).code;
+                    
+                    const factory = new Function('h', 'jsx', 'jsxs', 'Fragment', 'state', `"use strict";\n${transformed}\n;return (typeof App === 'function' ? App() : (typeof defaultExport === 'function' ? defaultExport() : undefined));`);
+                    const element = factory(h, jsx, jsxs, Fragment, state);
+                    if (element) {
+                        console.log('JSX element created via library runtime:', element);
+                        const txml = window.jsxToTXML(element);
+                        console.log('Generated TXML via library:', txml);
+                        return txml;
+                    }
+                }
+            } catch (e) {
+                console.warn('JSX runtime evaluation failed, falling back to heuristic conversion:', e);
+            }
+
+            // Fallback: previous heuristic conversion to ensure the demo remains usable
             const hasButton = jsxText.includes('Button');
             const hasCheckbox = jsxText.includes('Checkbox');
             const hasInputText = jsxText.includes('InputText');
             const hasSliderFloat = jsxText.includes('SliderFloat');
             const hasSameLine = jsxText.includes('SameLine');
-            
-            // Count how many Text elements are in the JSX
             const textCount = (jsxText.match(/<Text/g) || []).length;
-            
-            // Extract the title from the JSX if present
             const titleMatch = jsxText.match(/title="([^"]*)"/);
             const title = titleMatch ? titleMatch[1] : 'JSX ImGui Demo';
-            
-            // Build dynamic TXML based on what's in the JSX textarea
-            let txml = `<App>
-  <Body>
-    <Window title="${title}">
-      <Text>Welcome to JSX ImGui!</Text>
-      <Text>Count: ${state.count}</Text>
-      <Text>JSX contains ${textCount} Text elements</Text>`;
-      
-            if (hasButton) {
-                txml += `
-      <Button onClick="incrementCount">Clicked ${state.count} times</Button>`;
-            }
-            
-            if (hasSameLine) {
-                txml += `
-      <SameLine />`;
-            }
-            
-            if (hasCheckbox) {
-                txml += `
-      <Checkbox label="Enable Feature" />`;
-            }
-            
-            if (hasInputText) {
-                txml += `
-      <InputText label="Name" hint="Enter your name" />`;
-            }
-            
-            if (hasSliderFloat) {
-                txml += `
-      <SliderFloat label="Volume" min="0" max="1" />`;
-            }
-            
-            // Add a text showing that the JSX content is being dynamically processed
-            txml += `
-      <Text>JSX Code from textarea is being used!</Text>
-      <Text>JSX length: ${jsxText.length} characters</Text>
-      <Text>Dynamic content: ${hasButton ? 'Button' : ''} ${hasCheckbox ? 'Checkbox' : ''} ${hasInputText ? 'InputText' : ''} ${hasSliderFloat ? 'SliderFloat' : ''}</Text>`;
-      
-            // Add TSS analysis if TSS text is provided
+
+            let txml = `<App>\n  <Body>\n    <Window title="${title}">\n      <Text>Welcome to JSX ImGui!</Text>\n      <Text>Count: ${state.count}</Text>\n      <Text>JSX contains ${textCount} Text elements</Text>`;
+            if (hasButton) txml += `\n      <Button onClick="incrementCount">Clicked ${state.count} times</Button>`;
+            if (hasSameLine) txml += `\n      <SameLine />`;
+            if (hasCheckbox) txml += `\n      <Checkbox label="Enable Feature" />`;
+            if (hasInputText) txml += `\n      <InputText label="Name" hint="Enter your name" />`;
+            if (hasSliderFloat) txml += `\n      <SliderFloat label="Volume" min="0" max="1" />`;
+
             if (tssText) {
                 const tssRules = (tssText.match(/[A-Za-z]+\s*{/g) || []).length;
                 const hasPrimaryColor = tssText.includes('--primary-color');
                 const hasSecondaryColor = tssText.includes('--secondary-color');
                 const hasAccentColor = tssText.includes('--accent-color');
-                
-                txml += `
-      <Text>TSS Analysis: ${tssRules} rules found</Text>
-      <Text>TSS Colors: ${hasPrimaryColor ? 'Primary' : ''} ${hasSecondaryColor ? 'Secondary' : ''} ${hasAccentColor ? 'Accent' : ''}</Text>`;
+                txml += `\n      <Text>TSS Analysis: ${tssRules} rules found</Text>\n      <Text>TSS Colors: ${hasPrimaryColor ? 'Primary' : ''} ${hasSecondaryColor ? 'Secondary' : ''} ${hasAccentColor ? 'Accent' : ''}</Text>`;
             }
-            
-            txml += `
-    </Window>
-  </Body>
-</App>`;
-            
+
+            txml += `\n    </Window>\n  </Body>\n</App>`;
             return txml;
         }
         
