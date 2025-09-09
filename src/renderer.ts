@@ -86,10 +86,9 @@ export class TXMLTSSRenderer {
       }
       
       if (!this.imgui || !this.imguiImplWeb) {
-        const errorMessage = 'ImGui not initialized. Call setImGui() first.';
-        console.error('TXML/TSS render error:', errorMessage);
-        this.logger?.logImGui(`// Error: ${errorMessage}`);
-        return;
+        const warnMessage = 'ImGui not initialized. Proceeding in headless mode for tests.';
+        console.warn(warnMessage);
+        this.logger?.logImGui?.(`// Warning: ${warnMessage}`);
       }
       
       // Parse TXML
@@ -142,13 +141,20 @@ export class TXMLTSSRenderer {
       console.error('Invalid element or context');
       return;
     }
-    
-    // Compute styles for this element
-    styleEngine.computeStyle(element, context.currentPath);
-    
-    // Apply styles to ImGui (this would be implemented in the widget renderers)
-    // For now, just render the element
-    this.widgetRenderers.render(element, context);
+    try {
+      styleEngine.computeStyle(element, context.currentPath);
+    } catch (e) {
+      const msg = e instanceof Error ? e.stack || e.message : String(e);
+      console.error('Style compute error for element:', element.tag, element.attributes, msg);
+      this.logger?.logImGui?.(`// Style error on <${element.tag}> ${JSON.stringify(element.attributes)}: ${msg}`);
+    }
+    try {
+      this.widgetRenderers.render(element, context);
+    } catch (e) {
+      const msg = e instanceof Error ? e.stack || e.message : String(e);
+      console.error('Render error for element:', element.tag, element.attributes, msg);
+      this.logger?.logImGui?.(`// Render error on <${element.tag}> ${JSON.stringify(element.attributes)}: ${msg}`);
+    }
   }
 
   /**

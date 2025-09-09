@@ -261,8 +261,11 @@ Checkbox {
                         }
                     };
                     
-                    // Transform raw JSX to use our h function
-                    const transformed = Babel.transform(jsxText, {
+                    // Normalize user code to avoid identifier shadowing (e.g., function App())
+                    const normalized = jsxText.replace(/function\s+App\s*\(/, 'function RootComponent(');
+
+                    // Transform normalized JSX to use our h function
+                    const transformed = Babel.transform(normalized, {
                         presets: [['env', { modules: false }]],
                         plugins: [[Babel.availablePlugins["transform-react-jsx"], { 
                             pragma: 'h', 
@@ -270,8 +273,20 @@ Checkbox {
                         }]]
                     }).code;
                     
-                    const factory = new Function('h', 'jsx', 'jsxs', 'Fragment', 'state', `"use strict";\n${transformed}\n;return (typeof App === 'function' ? App() : (typeof defaultExport === 'function' ? defaultExport() : undefined));`);
-                    const element = factory(h, jsx, jsxs, Fragment, state);
+                    // Provide minimal shims to avoid ReferenceError for hooks like useState
+                    // Provide shims for capitalized tags (App, Head, Body, Window, Text, Button, etc.)
+                    // The JSX transform will pass string tags through 'h', but some user code may reference these identifiers.
+                    const factory = new Function('h', 'jsx', 'jsxs', 'Fragment', 'state', 'useState', 'App', 'Head', 'Body', 'Window', 'Text', 'Button', 'InputText', 'SliderFloat', 'Checkbox', 'SameLine', `"use strict";\n${transformed}\n;return (typeof RootComponent === 'function' ? RootComponent() : (typeof defaultExport === 'function' ? defaultExport() : undefined));`);
+                    const useStateShim = (initial) => {
+                        let value = typeof initial === 'function' ? initial() : initial;
+                        const setValue = (next) => { value = typeof next === 'function' ? next(value) : next; };
+                        return [value, setValue];
+                    };
+                    const tag = (name) => name; // map identifiers to string tag names
+                    const element = factory(
+                        h, jsx, jsxs, Fragment, state, useStateShim,
+                        tag('App'), tag('Head'), tag('Body'), tag('Window'), tag('Text'), tag('Button'), tag('InputText'), tag('SliderFloat'), tag('Checkbox'), tag('SameLine')
+                    );
                     if (element) {
                         console.log('JSX element created via library runtime:', element);
                         const txml = window.jsxToTXML(element);
@@ -594,12 +609,8 @@ Checkbox {
             // Reset state
             state.count = 0;
             
-            // Clear canvas
-            const canvas = document.getElementById('canvas');
-            if (backend === 'webgl2') {
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-            }
+            // Clear canvas (WebGPU handles clears during EndRender pass; for WebGL2 we can skip manual 2D clears)
+            // Intentionally no-op to avoid null 2D context errors
             
             // Clear console
             consoleOutput.textContent = 'Console output will appear here...';

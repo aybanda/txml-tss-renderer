@@ -439,11 +439,15 @@ Checkbox {
             ImGuiImplWeb = null;
             context = null;
             
-            // Clear canvas
+            // Clear canvas (only if we have a valid WebGL2 context). WebGPU is cleared in render pass.
             const canvas = document.getElementById('canvas');
             if (backend === 'webgl2') {
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const gl = canvas.getContext('webgl2');
+                if (gl) {
+                    gl.viewport(0, 0, canvas.width, canvas.height);
+                    gl.clearColor(0, 0, 0, 0);
+                    gl.clear(gl.COLOR_BUFFER_BIT);
+                }
             }
             
             // Clear console
