@@ -2,6 +2,24 @@
 
 import { TXMLElement } from './types.js';
 
+// Global handler registry for JSX inline event functions (e.g., onClick)
+function getGlobalHandlerRegistry(): Record<string, Function> {
+  const g = globalThis as any;
+  if (!g.__txmlJsxHandlers) {
+    g.__txmlJsxHandlers = Object.create(null);
+  }
+  return g.__txmlJsxHandlers as Record<string, Function>;
+}
+
+function getNextHandlerId(): string {
+  const g = globalThis as any;
+  if (typeof g.__txmlJsxHandlerSeq !== 'number') {
+    g.__txmlJsxHandlerSeq = 0;
+  }
+  g.__txmlJsxHandlerSeq += 1;
+  return `jsx_fn_${g.__txmlJsxHandlerSeq}`;
+}
+
 // JSX factory function
 export function jsx(type: string, props: any, key?: any): TXMLElement {
   const attributes: Record<string, string> = {};
@@ -10,16 +28,25 @@ export function jsx(type: string, props: any, key?: any): TXMLElement {
   // Handle children from props.children or key parameter
   if (props && props.children !== undefined) {
     if (Array.isArray(props.children)) {
-      children.push(...props.children.filter((child: any) => child !== null && child !== undefined));
+      children.push(
+        ...props.children
+          .filter((child: any) => child !== null && child !== undefined && child !== false)
+          .map((child: any) => (typeof child === 'number' || typeof child === 'boolean' ? String(child) : child))
+      );
     } else if (props.children !== null && props.children !== undefined) {
-      children.push(props.children as any);
+      const ch: any = props.children;
+      children.push(typeof ch === 'number' || typeof ch === 'boolean' ? String(ch) : ch);
     }
   } else if (key !== undefined) {
     // JSX passes children as the third parameter (key)
     if (Array.isArray(key)) {
-      children.push(...key.filter((child: any) => child !== null && child !== undefined));
+      children.push(
+        ...key
+          .filter((child: any) => child !== null && child !== undefined && child !== false)
+          .map((child: any) => (typeof child === 'number' || typeof child === 'boolean' ? String(child) : child))
+      );
     } else if (key !== null && key !== undefined) {
-      children.push(key as any);
+      children.push(typeof key === 'number' || typeof key === 'boolean' ? String(key) : (key as any));
     }
   }
 
@@ -33,7 +60,16 @@ export function jsx(type: string, props: any, key?: any): TXMLElement {
         // Skip React key prop
         continue;
       } else {
-        // Convert value to string
+        // Event handler: register function in global registry and serialize handler name
+        if (typeof value === 'function' && /^on[A-Z]/.test(key)) {
+          const registry = getGlobalHandlerRegistry();
+          const handlerId = getNextHandlerId();
+          registry[handlerId] = value as Function;
+          attributes[key] = handlerId;
+          continue;
+        }
+
+        // Convert other values to string
         attributes[key] = String(value);
       }
     }
@@ -56,14 +92,18 @@ export const Fragment = Symbol('Fragment');
 
 // Helper function to convert JSX to TXML string
 export function jsxToTXML(element: TXMLElement): string {
-  if (typeof element === 'string') {
+  if (element == null) {
+    return '';
+  }
+
+  if (typeof element === 'string' || typeof element === 'number' || typeof element === 'boolean') {
     return element;
   }
 
   const { tag, attributes, children } = element;
   
   // Build attributes string with proper escaping
-  const attrsStr = Object.entries(attributes)
+  const attrsStr = Object.entries(attributes || {})
     .map(([key, value]) => {
       const escapedValue = String(value)
         .replace(/&/g, '&amp;')
@@ -76,11 +116,11 @@ export function jsxToTXML(element: TXMLElement): string {
     .join(' ');
 
   // Build children string
-  const childrenStr = children
+  const childrenStr = (children || [])
     .map(child => jsxToTXML(child as any))
     .join('');
 
-  if (children.length === 0) {
+  if (!children || children.length === 0) {
     return `<${tag}${attrsStr ? ' ' + attrsStr : ''} />`;
   }
 
