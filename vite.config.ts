@@ -4,8 +4,12 @@ export default defineConfig({
   root: 'demo',
   server: {
     port: 3000,
+    open: '/demo.html',
     fs: {
       allow: ['..']
+    },
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
     }
   },
   optimizeDeps: {

@@ -45,7 +45,7 @@ export interface RenderContext {
 }
 
 export interface WidgetRenderer {
-  (element: TXMLElement, context: RenderContext): void;
+  (element: TXMLElement, context: RenderContext, computedStyle?: ComputedStyle, styleEngine?: any): void;
 }
 
 export interface StyleValue {
@@ -67,7 +67,7 @@ export type SupportedTag = typeof SUPPORTED_TAGS[number];
 
 // Supported TSS properties
 export const SUPPORTED_PROPERTIES = [
-  'color', 'background-color', 'width', 'height', 'padding', 'margin',
+  'color', 'text-color', 'background-color', 'width', 'height', 'padding', 'margin',
   'font-size', 'border-radius', 'opacity'
 ] as const;
 

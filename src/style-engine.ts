@@ -74,13 +74,14 @@ export class StyleEngine {
   }
 
   private resolveValue(value: string): string {
-    // Resolve CSS variables
+    // Resolve TSS variables (direct variable names, not var() syntax)
     let resolved = value;
     let changed = true;
     
     while (changed) {
       changed = false;
-      const varMatch = resolved.match(/var\(--([^)]+)\)/);
+      // Look for variable names that are not quoted strings or numbers
+      const varMatch = resolved.match(/\b([a-zA-Z_][a-zA-Z0-9_]*)\b/);
       
       if (varMatch) {
         const varName = varMatch[1];
@@ -89,10 +90,8 @@ export class StyleEngine {
         if (varValue !== undefined) {
           resolved = resolved.replace(varMatch[0], varValue);
           changed = true;
-        } else {
-          console.warn(`Undefined CSS variable: --${varName}`);
-          resolved = resolved.replace(varMatch[0], '');
         }
+        // If variable not found, leave the original value (could be a color name or other value)
       }
     }
     
@@ -102,6 +101,7 @@ export class StyleEngine {
   private parseStyleValue(property: string, value: string): StyleValue {
     switch (property) {
       case 'color':
+      case 'text-color':
       case 'background-color':
         return {
           type: 'color',
@@ -159,21 +159,10 @@ export class StyleEngine {
       return (r << 16) | (g << 8) | b | 0xff000000;
     }
     
-    // Named colors
-    const namedColors: Record<string, number> = {
-      'red': 0xff0000ff,
-      'green': 0x00ff00ff,
-      'blue': 0x0000ffff,
-      'white': 0xffffffff,
-      'black': 0x000000ff,
-      'gray': 0x808080ff,
-      'grey': 0x808080ff,
-      'yellow': 0xffff00ff,
-      'cyan': 0x00ffffff,
-      'magenta': 0xff00ffff
-    };
-    
-    return namedColors[value.toLowerCase()] || 0xffffffff;
+    // TSS doesn't use named colors - all colors should be variables or hex values
+    // If we get here, it means the variable wasn't resolved, so return a default
+    console.warn(`TSS: Unresolved color value: ${value}. Expected hex color or variable reference.`);
+    return 0xffffffff; // Default to white
   }
 
   private parseNumber(value: string): number {

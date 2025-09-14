@@ -2,8 +2,8 @@
  * Widget renderers for TXML elements to TXML elements to ImGui calls
  */
 
+import { ImVec4 } from '@mori2003/jsimgui';
 import { TXMLElement, RenderContext, WidgetRenderer, ComputedStyle, Logger } from './types.js';
-import { StyleEngine } from './style-engine.js';
 
 export interface ImGuiInstance {
   Begin: (name: string, p_open?: boolean[], flags?: number) => boolean;
@@ -22,13 +22,14 @@ export interface ImGuiInstance {
   InputTextWithHint: (label: string, hint: string, buf: string[], buf_size: number) => boolean;
   CreateContext: () => void;
   StyleColorsDark: () => void;
-  // Style stack (available on real ImGui instance)
-  PushStyleColor?: (idx: number, col: any) => void;
-  PopStyleColor?: (count?: number) => void;
-  // Expose color enum if available
-  Col?: Record<string, number>;
-  // Optional vector constructors when running against real jsimgui (unused for colors)
-  ImVec4?: new (x: number, y: number, z: number, w: number) => any;
+  PushStyleColor?: (col: number, r: number, g: number, b: number, a: number) => void;
+  PopStyleColor?: (count: number) => void;
+  Col?: {
+    Button: number;
+    Text: number;
+    ButtonText: number;
+  };
+  ImVec4?: new (x: number, y: number, z: number, w: number) => ImVec4;
 }
 
 export class WidgetRenderers {
@@ -43,6 +44,10 @@ export class WidgetRenderers {
 
   setImGui(imgui: ImGuiInstance): void {
     this.imgui = imgui;
+  }
+
+  setStyleEngine(_styleEngine: any): void {
+    // Store style engine for use in rendering (currently unused)
   }
 
   private setupRenderers(): void {
@@ -60,37 +65,31 @@ export class WidgetRenderers {
     this.renderers.set('Separator', this.renderSeparator.bind(this));
   }
 
-  render(element: TXMLElement, context: RenderContext): void {
-    try {
-      const renderer = this.renderers.get(element.tag);
-      if (renderer) {
-        renderer(element, context);
-      } else {
-        console.warn(`No renderer for tag: ${element.tag}`);
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.stack || e.message : String(e);
-      console.error('Widget render error:', element.tag, element.attributes, msg);
-      this.logger?.logImGui?.(`// Widget render error on <${element.tag}> ${JSON.stringify(element.attributes)}: ${msg}`);
+  render(element: TXMLElement, context: RenderContext, computedStyle?: ComputedStyle, styleEngine?: any): void {
+    const renderer = this.renderers.get(element.tag);
+    if (renderer) {
+      renderer(element, context, computedStyle, styleEngine);
+    } else {
+      console.warn(`No renderer for tag: ${element.tag}`);
     }
   }
 
-  private renderApp(element: TXMLElement, context: RenderContext): void {
-    // App is the root container, just render children
-    this.renderChildren(element, context);
+  private renderApp(element: TXMLElement, context: RenderContext, _computedStyle?: ComputedStyle, styleEngine?: any): void {
+    // App is the root container, render children
+    this.renderChildren(element, context, styleEngine);
   }
 
-  private renderHead(_element: TXMLElement, _context: RenderContext): void {
+  private renderHead(_element: TXMLElement, _context: RenderContext, _computedStyle?: ComputedStyle, _styleEngine?: any): void {
     // Head contains metadata, skip rendering for now
   }
 
-  private renderBody(element: TXMLElement, context: RenderContext): void {
+  private renderBody(element: TXMLElement, context: RenderContext, _computedStyle?: ComputedStyle, styleEngine?: any): void {
     // Body is the main content area, render children
-    this.renderChildren(element, context);
+    this.renderChildren(element, context, styleEngine);
   }
 
-  private renderWindow(element: TXMLElement, context: RenderContext): void {
-    if (!this.imgui) { this.renderChildren(element, context); return; }
+  private renderWindow(element: TXMLElement, context: RenderContext, _computedStyle?: ComputedStyle, styleEngine?: any): void {
+    if (!this.imgui) return;
     const title = element.attributes.title || 'Window';
     const style = this.getComputedStyle(element, context);
     
@@ -101,68 +100,77 @@ export class WidgetRenderers {
     }
     
     this.logger?.logImGui(`ImGui.Begin(${JSON.stringify(title)});`);
-    let began = false;
-    try {
-      const opened = this.imgui.Begin(title);
-      began = true;
-      if (opened) {
-        this.renderChildren(element, context);
-      }
-    } finally {
-      if (began) {
-        this.logger?.logImGui('ImGui.End();');
-        this.imgui.End();
-      }
+    const opened = this.imgui.Begin(title);
+    if (opened) {
+      this.renderChildren(element, context, styleEngine);
     }
+    this.logger?.logImGui('ImGui.End();');
+    this.imgui.End();
   }
 
-  private renderText(element: TXMLElement, context: RenderContext): void {
-    if (!this.imgui) return; // Text requires ImGui to render; safe no-op in headless tests
+  private renderText(element: TXMLElement, context: RenderContext, computedStyle?: ComputedStyle, _styleEngine?: any): void {
+    if (!this.imgui) return;
     const text = this.getTextContent(element);
-    const style = this.getComputedStyle(element, context);
+    const style = computedStyle || this.getComputedStyle(element, context);
     
-    // Prefer using style stack for text color to avoid binding issues with TextColored
-    const colEnum = (this.imgui as any).Col || {};
-    const colText = colEnum.Text ?? 0;
-    let pushed = false;
-    if (style.color && style.color.type === 'color' && this.imgui.PushStyleColor) {
-      const c = this.intToRGBA(style.color.value);
-      const colParam: any = (this.imgui as any).ImVec4
-        ? new (this.imgui as any).ImVec4(c[0], c[1], c[2], c[3])
-        : this.rgbaToImU32(c);
-      this.logger?.logImGui(`ImGui.PushStyleColor(ImGui.Col.Text, [${c[0].toFixed(3)}, ${c[1].toFixed(3)}, ${c[2].toFixed(3)}, ${c[3].toFixed(3)}]);`);
-      this.imgui.PushStyleColor(colText, colParam);
-      pushed = true;
-    }
-
-    this.logger?.logImGui(`ImGui.Text(${JSON.stringify(text)});`);
-    this.imgui.Text(text);
-
-    if (pushed && this.imgui.PopStyleColor) {
-      this.logger?.logImGui('ImGui.PopStyleColor(1);');
-      this.imgui.PopStyleColor(1);
+    if ((style.color && style.color.type === 'color') || (style['text-color'] && style['text-color'].type === 'color')) {
+      const colorValue = style['text-color'] || style.color;
+      const color = this.intToImVec4(colorValue.value);
+      this.logger?.logImGui(`ImGui.TextColored([${color.x?.toFixed?.(3) ?? ''}, ${color.y?.toFixed?.(3) ?? ''}, ${color.z?.toFixed?.(3) ?? ''}, ${color.w?.toFixed?.(3) ?? ''}], ${JSON.stringify(text)});`);
+      // Use PushStyleColor for text elements (more reliable than TextColored)
+      const textCol = this.imgui?.Col?.Text ?? 4;
+      this.imgui.PushStyleColor?.(textCol, color.x, color.y, color.z, color.w);
+      this.imgui.Text(text);
+      this.imgui.PopStyleColor?.(1);
+    } else {
+      this.logger?.logImGui(`ImGui.Text(${JSON.stringify(text)});`);
+      this.imgui.Text(text);
     }
   }
 
-  private renderButton(element: TXMLElement, context: RenderContext): void {
-    // Allow headless path to still invoke events during tests
-    const hasImGui = Boolean(this.imgui);
+  private renderButton(element: TXMLElement, context: RenderContext, computedStyle?: ComputedStyle, _styleEngine?: any): void {
+    if (!this.imgui) return;
     const text = this.getTextContent(element);
-    const style = this.getComputedStyle(element, context);
+    const style = computedStyle || this.getComputedStyle(element, context);
     
     // Apply button styling
-    if (hasImGui && style.width && style.width.type === 'number' && this.imgui) {
+    if (style.width && style.width.type === 'number') {
       this.logger?.logImGui(`ImGui.SetNextItemWidth(${style.width.value});`);
       this.imgui.SetNextItemWidth(style.width.value);
     }
-    // Push style colors if available
-    const pops = hasImGui ? this.pushButtonColors(style) : 0;
+    
+    // Apply button styling (background and text colors)
+    let pushedColors = 0;
+    
+    // Apply background color if specified
+    if (style['background-color'] && style['background-color'].type === 'color') {
+      const bgColor = this.intToImVec4(style['background-color'].value);
+      this.logger?.logImGui(`ImGui.PushStyleColor(ImGuiCol.Button, [${bgColor.x?.toFixed?.(3) ?? ''}, ${bgColor.y?.toFixed?.(3) ?? ''}, ${bgColor.z?.toFixed?.(3) ?? ''}, ${bgColor.w?.toFixed?.(3) ?? ''}]);`);
+      // Try to use the actual ImGui color constants, fallback to hardcoded values
+      // ImGuiCol_Button = 0, ImGuiCol_ButtonHovered = 1, ImGuiCol_ButtonActive = 2
+      const buttonCol = this.imgui?.Col?.Button ?? 0;
+      this.imgui?.PushStyleColor?.(buttonCol, bgColor.x, bgColor.y, bgColor.z, bgColor.w);
+      pushedColors++;
+    }
+    
+    // Apply text color if specified - use ButtonText instead of Text for buttons
+    if (style.color && style.color.type === 'color') {
+      const textColor = this.intToImVec4(style.color.value);
+      this.logger?.logImGui(`ImGui.PushStyleColor(ImGuiCol.ButtonText, [${textColor.x?.toFixed?.(3) ?? ''}, ${textColor.y?.toFixed?.(3) ?? ''}, ${textColor.z?.toFixed?.(3) ?? ''}, ${textColor.w?.toFixed?.(3) ?? ''}]);`);
+      // Use ButtonText color constant for button text
+      // ImGuiCol_ButtonText = 5 (this is the correct constant for button text)
+      const buttonTextCol = this.imgui?.Col?.ButtonText ?? 5;
+      this.imgui?.PushStyleColor?.(buttonTextCol, textColor.x, textColor.y, textColor.z, textColor.w);
+      pushedColors++;
+    }
+    
     this.logger?.logImGui(`ImGui.Button(${JSON.stringify(text)});`);
-    const clicked = hasImGui && this.imgui ? this.imgui.Button(text) : true; // simulate click in tests
-    // Pop pushed colors
-    if (hasImGui && pops > 0 && this.imgui) {
-      this.logger?.logImGui(`ImGui.PopStyleColor(${pops});`);
-      this.imgui.PopStyleColor && this.imgui.PopStyleColor(pops);
+    const clicked = this.imgui.Button(text);
+    
+    // Pop all pushed colors
+    if (pushedColors > 0) {
+      this.logger?.logImGui(`ImGui.PopStyleColor(${pushedColors});`);
+      this.imgui?.PopStyleColor?.(pushedColors);
     }
     
     if (clicked && element.attributes.onClick) {
@@ -170,7 +178,7 @@ export class WidgetRenderers {
     }
   }
 
-  private renderInputText(element: TXMLElement, context: RenderContext): void {
+  private renderInputText(element: TXMLElement, context: RenderContext, _computedStyle?: ComputedStyle, _styleEngine?: any): void {
     if (!this.imgui) return;
     const id = this.generateId(element, context);
     const state = context.state.get(id) || { id, value: '', lastFrame: context.frameNumber };
@@ -197,7 +205,7 @@ export class WidgetRenderers {
     }
   }
 
-  private renderSliderFloat(element: TXMLElement, context: RenderContext): void {
+  private renderSliderFloat(element: TXMLElement, context: RenderContext, _computedStyle?: ComputedStyle, _styleEngine?: any): void {
     if (!this.imgui) return;
     const id = this.generateId(element, context);
     const state = context.state.get(id) || { id, value: 0.5, lastFrame: context.frameNumber };
@@ -224,7 +232,7 @@ export class WidgetRenderers {
     }
   }
 
-  private renderCheckbox(element: TXMLElement, context: RenderContext): void {
+  private renderCheckbox(element: TXMLElement, context: RenderContext, _computedStyle?: ComputedStyle, _styleEngine?: any): void {
     if (!this.imgui) return;
     const id = this.generateId(element, context);
     const state = context.state.get(id) || { id, value: false, lastFrame: context.frameNumber };
@@ -261,24 +269,32 @@ export class WidgetRenderers {
     this.imgui.Separator();
   }
 
-  private renderChildren(element: TXMLElement, context: RenderContext): void {
+  private renderChildren(element: TXMLElement, context: RenderContext, styleEngine?: any): void {
     const oldPath = [...context.currentPath];
     context.currentPath.push(element.tag);
     
-          for (const child of element.children) {
-        if (typeof child === 'string') {
-          // Text content - render as text
-          if (child.trim() && this.imgui) {
-            this.imgui.Text(child.trim());
-          }
-        } else {
-          // Element - render recursively
-          this.render(child, context);
+    for (const child of element.children) {
+      if (typeof child === 'string') {
+        // Text content - render as text
+        if (child.trim() && this.imgui) {
+          this.imgui.Text(child.trim());
         }
+      } else {
+        // Element - render recursively with computed styles
+        let computedStyle;
+        try {
+          computedStyle = styleEngine?.computeStyle(child, context.currentPath) || {};
+        } catch (e) {
+          console.error('Style compute error for child element:', child.tag, e);
+          computedStyle = {};
+        }
+        this.render(child, context, computedStyle, styleEngine);
       }
+    }
     
     context.currentPath = oldPath;
   }
+
 
   private getTextContent(element: TXMLElement): string {
     return element.children
@@ -288,13 +304,9 @@ export class WidgetRenderers {
   }
 
   private getComputedStyle(_element: TXMLElement, _context: RenderContext): ComputedStyle {
-    // Compute on demand using the current stylesheet
-    try {
-      const engine = new StyleEngine(_context.stylesheet);
-      return engine.computeStyle(_element, _context.currentPath);
-    } catch {
-      return {};
-    }
+    // This would use the style engine to compute styles
+    // For now, return empty style
+    return {};
   }
 
   private generateId(element: TXMLElement, context: RenderContext): string {
@@ -312,57 +324,21 @@ export class WidgetRenderers {
     }
   }
 
-  private intToRGBA(color: number): [number, number, number, number] {
+  private intToImVec4(color: number): ImVec4 {
     const r = ((color >> 16) & 0xff) / 255;
     const g = ((color >> 8) & 0xff) / 255;
     const b = (color & 0xff) / 255;
     const a = ((color >> 24) & 0xff) / 255;
-    return [r, g, b, a];
-  }
-
-  private rgbaToImU32(rgba: [number, number, number, number]): number {
-    // jsimgui PushStyleColor expects packed ImU32 (ABGR). Use same packing as Dear ImGui: IM_COL32
-    const r = Math.max(0, Math.min(255, Math.round(rgba[0] * 255)));
-    const g = Math.max(0, Math.min(255, Math.round(rgba[1] * 255)));
-    const b = Math.max(0, Math.min(255, Math.round(rgba[2] * 255)));
-    const a = Math.max(0, Math.min(255, Math.round(rgba[3] * 255)));
-    // ImGui uses ABGR packing by default for ImU32 colors
-    const packed = (a << 24) | (b << 16) | (g << 8) | r;
-    // Ensure unsigned 32-bit
-    return packed >>> 0;
-  }
-
-  private pushButtonColors(style: ComputedStyle): number {
-    if (!this.imgui || !this.imgui.PushStyleColor) return 0;
-    const colEnum = (this.imgui as any).Col || {};
-    let pushes = 0;
-    // background-color -> Button variants
-    if (style['background-color'] && style['background-color'].type === 'color') {
-      const c = this.intToRGBA(style['background-color'].value);
-      const colParam: any = (this.imgui as any).ImVec4
-        ? new (this.imgui as any).ImVec4(c[0], c[1], c[2], c[3])
-        : this.rgbaToImU32(c);
-      const colButton = colEnum.Button ?? 0;
-      const colButtonHovered = colEnum.ButtonHovered ?? colButton;
-      const colButtonActive = colEnum.ButtonActive ?? colButton;
-      this.logger?.logImGui(`ImGui.PushStyleColor(ImGui.Col.Button, [${c[0].toFixed(3)}, ${c[1].toFixed(3)}, ${c[2].toFixed(3)}, ${c[3].toFixed(3)}]);`);
-      this.imgui.PushStyleColor(colButton, colParam); pushes++;
-      this.logger?.logImGui(`ImGui.PushStyleColor(ImGui.Col.ButtonHovered, [${c[0].toFixed(3)}, ${c[1].toFixed(3)}, ${c[2].toFixed(3)}, ${c[3].toFixed(3)}]);`);
-      this.imgui.PushStyleColor(colButtonHovered, colParam); pushes++;
-      this.logger?.logImGui(`ImGui.PushStyleColor(ImGui.Col.ButtonActive, [${c[0].toFixed(3)}, ${c[1].toFixed(3)}, ${c[2].toFixed(3)}, ${c[3].toFixed(3)}]);`);
-      this.imgui.PushStyleColor(colButtonActive, colParam); pushes++;
+    
+    // Use ImVec4 from ImGui if available, otherwise create a simple object
+    if (this.imgui?.ImVec4) {
+      return new this.imgui.ImVec4(r, g, b, a);
+    } else {
+      // Fallback for when ImGui is not initialized - create a mock ImVec4
+      const mockVec4 = { x: r, y: g, z: b, w: a } as any;
+      mockVec4._ptr = null; // Add the required _ptr property
+      return mockVec4;
     }
-    // color -> Text color for button label
-    if (style['color'] && style['color'].type === 'color') {
-      const c = this.intToRGBA(style['color'].value);
-      const colParam: any = (this.imgui as any).ImVec4
-        ? new (this.imgui as any).ImVec4(c[0], c[1], c[2], c[3])
-        : this.rgbaToImU32(c);
-      const colText = colEnum.Text ?? 0;
-      this.logger?.logImGui(`ImGui.PushStyleColor(ImGui.Col.Text, [${c[0].toFixed(3)}, ${c[1].toFixed(3)}, ${c[2].toFixed(3)}, ${c[3].toFixed(3)}]);`);
-      this.imgui.PushStyleColor(colText, colParam); pushes++;
-    }
-    return pushes;
   }
 }
 

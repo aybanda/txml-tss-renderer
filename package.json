@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build --config vite.lib.config.ts",
+    "build:demos": "npm run build && vite build --config vite.demo.config.ts",
+    "dev:jsx": "npm run build && vite --config vite.demo.config.ts",
     "test": "vitest",
     "preview": "vite preview"
   },

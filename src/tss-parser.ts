@@ -1,4 +1,4 @@
-// CSS-like stylesheet parser
+// TSS (Trema Style Sheets) parser
 
 import { TSSRule, TSSVariable, TSSStylesheet, SUPPORTED_PROPERTIES } from './types.js';
 
@@ -23,14 +23,14 @@ export class TSSParser {
     this.skipWhitespace();
 
     while (this.pos < this.tss.length) {
-      if (this.tss.startsWith(':root', this.pos)) {
-        // CSS variables in :root
-        this.parseRootVariables(variables);
+      if (this.tss.startsWith('scope', this.pos)) {
+        // TSS scope block for variables
+        this.parseScopeBlock(variables);
       } else if (this.tss[this.pos] === '@') {
         // At-rule (like @media, @import, etc.)
         this.parseAtRule();
       } else {
-        // CSS rule
+        // TSS rule
         const rule = this.parseRule();
         if (rule) {
           rules.push(rule);
@@ -42,15 +42,15 @@ export class TSSParser {
     return { variables, rules };
   }
 
-  private parseRootVariables(variables: Map<string, string>): void {
-    // Skip :root
+  private parseScopeBlock(variables: Map<string, string>): void {
+    // Skip 'scope'
     this.pos += 5;
     this.column += 5;
     
     this.skipWhitespace();
     
     if (!this.consume('{')) {
-      throw new TSSParseError('Expected { after :root', this.line, this.column);
+      throw new TSSParseError('Expected { after scope', this.line, this.column);
     }
     
     while (this.pos < this.tss.length && this.tss[this.pos] !== '}') {
@@ -58,30 +58,19 @@ export class TSSParser {
       
       if (this.tss[this.pos] === '}') break;
       
-      if (this.tss.startsWith('--', this.pos)) {
-        const variable = this.parseVariable();
-        variables.set(variable.name, variable.value);
-      } else {
-        // Skip other properties in :root
-        this.parseIdentifier();
-        this.consume(':');
-        this.parseValue();
-        this.consume(';');
-      }
+      // Parse TSS variable declaration: name: value;
+      const variable = this.parseTSSVariable();
+      variables.set(variable.name, variable.value);
       
       this.skipWhitespace();
     }
     
     if (!this.consume('}')) {
-      throw new TSSParseError('Expected } after :root block', this.line, this.column);
+      throw new TSSParseError('Expected } after scope block', this.line, this.column);
     }
   }
 
-  private parseVariable(): TSSVariable {
-    if (!this.consume('--')) {
-      throw new TSSParseError('Expected -- for CSS variable', this.line, this.column);
-    }
-
+  private parseTSSVariable(): TSSVariable {
     const name = this.parseIdentifier();
     
     if (!this.consume(':')) {
@@ -312,3 +301,4 @@ export function parseTSS(tss: string): TSSStylesheet {
   const parser = new TSSParser(tss);
   return parser.parse();
 }
+

@@ -25,29 +25,30 @@ describe('TSS Parser', () => {
     expect(result.rules[0].properties['background-color']).toBe('#333');
   });
 
-  it('should parse CSS variables', () => {
+  it('should parse TSS variables', () => {
     const tss = `
-      :root {
-        --primary-color: #4CAF50;
-        --secondary-color: #2196F3;
-        --text-color: #ffffff;
+      scope {
+        primaryColor: #4CAF50;
+        secondaryColor: #2196F3;
+        textColor: #ffffff;
       }
       
       Button {
-        background-color: var(--primary-color);
-        color: var(--text-color);
+        background-color: primaryColor;
+        text-color: textColor;
       }
     `;
     
     const result = parseTSS(tss);
     
     expect(result.variables.size).toBe(3);
-    expect(result.variables.get('primary-color')).toBe('#4CAF50');
-    expect(result.variables.get('secondary-color')).toBe('#2196F3');
-    expect(result.variables.get('text-color')).toBe('#ffffff');
+    expect(result.variables.get('primaryColor')).toBe('#4CAF50');
+    expect(result.variables.get('secondaryColor')).toBe('#2196F3');
+    expect(result.variables.get('textColor')).toBe('#ffffff');
     
     expect(result.rules).toHaveLength(1);
-    expect(result.rules[0].properties['background-color']).toBe('var(--primary-color)');
+    expect(result.rules[0].properties['background-color']).toBe('primaryColor');
+    expect(result.rules[0].properties['text-color']).toBe('textColor');
   });
 
   it('should calculate specificity correctly', () => {
