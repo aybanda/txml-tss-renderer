@@ -96,6 +96,10 @@
             Clicked {count} times
           </Button>
           <SameLine />
+          <Button id="greenButton" onClick={() => console.log('Green button clicked!')}>
+            Green Button
+          </Button>
+          <SameLine />
           <Checkbox 
             label="Enable Feature" 
             checked={enabled}
@@ -122,28 +126,38 @@
 </textarea>
             
             <h3>TSS Styles:</h3>
-            <textarea id="tssEditor">:root {
-  --primary-color: #4CAF50;
-  --secondary-color: #2196F3;
-  --text-color: #ffffff;
-  --accent-color: #FF9800;
+            <textarea id="tssEditor">scope {
+  primaryColor: #4CAF50;
+  secondaryColor: #2196F3;
+  textColor: #000000;
+  accentColor: #FF9800;
+  buttonGreen: #32CD32;
+  whiteColor: #ffffff;
+  blackColor: #000000;
+  buttonTextColor: #ffffff;
+  greenButtonTextColor: #000000;
 }
 
 Window {
-  color: var(--text-color);
+  text-color: textColor;
 }
 
 Button {
-  background-color: var(--primary-color);
-  color: white;
+  background-color: primaryColor;
+  color: buttonTextColor;
+}
+
+#greenButton {
+  background-color: buttonGreen;
+  color: greenButtonTextColor;
 }
 
 Text {
-  color: var(--text-color);
+  text-color: textColor;
 }
 
 Checkbox {
-  color: var(--accent-color);
+  text-color: accentColor;
 }</textarea>
             
 
@@ -175,6 +189,7 @@ Checkbox {
         let isRendering = false;
         let animationId = null;
         let context = null;
+        let isInited = false;
         let frameCount = 0;
         let backend = 'webgl2'; // Global backend variable
         
@@ -367,6 +382,11 @@ Checkbox {
         // ImGui demo using the exact working pattern
         async function initImGui() {
             try {
+                if (isInited) {
+                    console.log('ImGui already initialized; skipping re-init');
+                    isRendering = true;
+                    return true;
+                }
                 console.log('Loading jsimgui...');
                 const jsimgui = await import('https://esm.sh/@mori2003/jsimgui');
                 ImGui = jsimgui.ImGui;
@@ -566,12 +586,30 @@ Checkbox {
                 frame();
                 
                 console.log('JSX ImGui initialized successfully');
+                isInited = true;
                 return true;
                 
             } catch (error) {
                 console.error('ImGui initialization failed:', error);
                 isRendering = false;
                 throw error;
+            }
+        }
+
+        function teardownImGui() {
+            try {
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                    animationId = null;
+                }
+                isRendering = false;
+                try { ImGuiImplWeb && ImGuiImplWeb.Shutdown && ImGuiImplWeb.Shutdown(); } catch {}
+                try { ImGui && ImGui.DestroyContext && ImGui.DestroyContext(); } catch {}
+            } finally {
+                isInited = false;
+                ImGui = null;
+                ImGuiImplWeb = null;
+                context = null;
             }
         }
         
@@ -581,9 +619,7 @@ Checkbox {
                 document.getElementById('status').textContent = 'Initializing...';
                 document.getElementById('status').className = 'status info';
                 
-                if (!isRendering) {
-                    await initImGui();
-                }
+                await initImGui();
                 
                 document.getElementById('status').textContent = 'Rendering JSX...';
                 document.getElementById('status').className = 'status success';
@@ -596,15 +632,7 @@ Checkbox {
         });
         
         document.getElementById('resetBtn').addEventListener('click', () => {
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-                animationId = null;
-            }
-            
-            isRendering = false;
-            ImGui = null;
-            ImGuiImplWeb = null;
-            context = null;
+            teardownImGui();
             
             // Reset state
             state.count = 0;
@@ -619,6 +647,21 @@ Checkbox {
             document.getElementById('status').className = 'status info';
             
             console.log('Reset complete');
+        });
+
+        // Reinitialize on backend change (requires teardown)
+        document.getElementById('backendSelect').addEventListener('change', async () => {
+            try {
+                document.getElementById('status').textContent = 'Switching backend...';
+                document.getElementById('status').className = 'status info';
+                teardownImGui();
+                await initImGui();
+                document.getElementById('status').textContent = 'Backend switched';
+                document.getElementById('status').className = 'status success';
+            } catch (e) {
+                document.getElementById('status').textContent = 'Backend switch failed';
+                document.getElementById('status').className = 'status error';
+            }
         });
         
         // Add live updates when content changes

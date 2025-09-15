@@ -118,7 +118,7 @@
         // Load build-time compiled JSX demo
         async function loadBuildTimeDemo() {
             try {
-                const { initJSXDemo } = await import('./jsx-demo.js?v=' + Date.now());
+                const { initJSXDemo } = await import('./jsx-demo.js');
                 console.log('Build-time JSX demo loaded successfully');
                 return initJSXDemo;
             } catch (error) {
