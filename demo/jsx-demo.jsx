@@ -17,36 +17,35 @@ function App() {
   const SliderFloat = "SliderFloat";
  
   return (
-    <App>
-      <Body>
-        <Window title="JSX ImGui Demo">
-          <Text>Welcome to JSX ImGui!</Text>
-          <Text>Count: {count}</Text>
-          <Button onClick={() => setCount(count + 1)}>
-            Clicked {count} times
-          </Button>
-          <SameLine />
-          <Checkbox 
-            label="Enable Feature" 
-            checked={enabled}
-            onChange={setEnabled}
-          />
-          <InputText 
-            label="Name" 
-            hint="Enter your name"
-            value={name}
-            onChange={setName}
-          />
-          <SliderFloat 
-            label="Volume" 
-            min={0} 
-            max={1}
-            value={volume}
-            onChange={setVolume}
-          />
-        </Window>
-      </Body>
-    </App>
+    <Body>
+      <Window title="Build-time JSX Demo">
+        <Text>Welcome to Build-time JSX ImGui!</Text>
+        <Text>Count: 0</Text>
+        <Button onClick="incrementCount">
+          Clicked 0 times
+        </Button>
+        <SameLine />
+        <Button id="greenButton" onClick="greenClick">
+          Green Button
+        </Button>
+        <SameLine />
+        <Checkbox 
+          label="Enable Feature" 
+          checked="false"
+        />
+        <InputText 
+          label="Name" 
+          hint="Enter your name"
+          value=""
+        />
+        <SliderFloat 
+          label="Volume" 
+          min="0" 
+          max="1"
+          value="0.5"
+        />
+      </Window>
+    </Body>
   );
 }
  
@@ -64,7 +63,8 @@ export async function initJSXDemo() {
     console.log('JSX element created:', jsxElement);
     
     console.log('Converting JSX to TXML...');
-    const txml = jsxToTXML(jsxElement);
+    const bodyTXML = jsxToTXML(jsxElement);
+    const txml = `<App>${bodyTXML}</App>`;
     console.log('TXML conversion completed');
     
     console.log('Generated TXML from build-time JSX:', txml);
