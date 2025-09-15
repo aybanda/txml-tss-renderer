@@ -105,6 +105,7 @@
         let backend = 'webgl2';
         let buildTimeTXML = null;
         let buildTimeTSS = null;
+        let renderer = null;
         
         // Console output
         const consoleOutput = document.getElementById('consoleOutput');
@@ -118,7 +119,7 @@
         // Load build-time compiled JSX demo
         async function loadBuildTimeDemo() {
             try {
-                const { initJSXDemo } = await import('./jsx-demo.js');
+                const { initJSXDemo } = await import('./jsx-demo.jsx');
                 console.log('Build-time JSX demo loaded successfully');
                 return initJSXDemo;
             } catch (error) {
@@ -237,7 +238,6 @@
                 }
                 
                 // Create renderer once outside the render loop
-                let renderer = null;
                 if (buildTimeTXML && buildTimeTSS) {
                     console.log('Creating TXML/TSS renderer...');
                     const { TXMLTSSRenderer, DefaultConsoleLogger } = await import('../dist/index.js');
@@ -268,11 +268,12 @@
                     if (!isRendering) return;
                     
                     try {
+                        // Use proper ImGui frame management sequence
                         ImGuiImplWeb.BeginRender();
                         
                         // DEBUG: Check frame state
                         frameCount++;
-                        console.log(`Frame ${frameCount}: Starting render (no NewFrame needed)`);
+                        console.log(`Frame ${frameCount}: Starting render with proper frame management`);
                         
                         // Render the build-time JSX content
                         if (renderer && buildTimeTXML && buildTimeTSS) {
@@ -298,29 +299,8 @@
                             context.clear(context.COLOR_BUFFER_BIT);
                         }
                         
-                        // EndRender with proper parameters for WebGPU
-                        if (backend === 'webgpu') {
-                            // For WebGPU, we need to create a render pass
-                            const commandEncoder = device.createCommandEncoder();
-                            const textureView = context.getCurrentTexture().createView();
-                            
-                            const renderPassDescriptor = {
-                                colorAttachments: [{
-                                    view: textureView,
-                                    clearValue: { r: 0.1, g: 0.3, b: 0.1, a: 1.0 },
-                                    loadOp: 'clear',
-                                    storeOp: 'store',
-                                }],
-                            };
-                            
-                            const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-                            ImGuiImplWeb.EndRender(passEncoder);
-                            passEncoder.end();
-                            
-                            device.queue.submit([commandEncoder.finish()]);
-                        } else {
-                            ImGuiImplWeb.EndRender();
-                        }
+                        // Use proper ImGui render sequence
+                        ImGuiImplWeb.EndRender();
                         
                         console.log('Build-time JSX ImGui rendered successfully');
                     } catch (error) {
@@ -366,6 +346,7 @@
                 ImGui = null;
                 ImGuiImplWeb = null;
                 context = null;
+                renderer = null;
             }
         }
         
