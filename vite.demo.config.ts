@@ -4,8 +4,9 @@ import { resolve } from 'path';
 export default defineConfig({
   root: 'demo',
   esbuild: {
-    jsx: 'automatic',
-    jsxImportSource: 'react'
+    jsx: 'transform',
+    jsxFactory: 'jsx',
+    jsxFragment: 'Fragment'
   },
   build: {
     outDir: '../dist-demo',
@@ -13,12 +14,13 @@ export default defineConfig({
       input: {
         'working-imgui': resolve(__dirname, 'demo/working-imgui-demo.html'),
         'jsx-working': resolve(__dirname, 'demo/jsx-working-demo.html'),
-        'build-time-jsx': resolve(__dirname, 'demo/build-time-jsx-demo.html')
+        'build-time-jsx': resolve(__dirname, 'demo/build-time-jsx-demo.html'),
+        'index': resolve(__dirname, 'demo/index.html')
       }
     }
   },
   server: {
     port: 3001,
-    open: '/working-imgui-demo.html'
+    open: '/index.html'
   }
 });

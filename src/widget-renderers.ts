@@ -36,6 +36,7 @@ export class WidgetRenderers {
   private renderers = new Map<string, WidgetRenderer>();
   private logger: Logger | null;
   private imgui: ImGuiInstance | null = null;
+  private styleEngine: any = null;
 
   constructor(logger?: Logger) {
     this.logger = logger ?? null;
@@ -46,8 +47,8 @@ export class WidgetRenderers {
     this.imgui = imgui;
   }
 
-  setStyleEngine(_styleEngine: any): void {
-    // Store style engine for use in rendering (currently unused)
+  setStyleEngine(styleEngine: any): void {
+    this.styleEngine = styleEngine;
   }
 
   private setupRenderers(): void {
@@ -68,7 +69,12 @@ export class WidgetRenderers {
   render(element: TXMLElement, context: RenderContext, computedStyle?: ComputedStyle, styleEngine?: any): void {
     const renderer = this.renderers.get(element.tag);
     if (renderer) {
-      renderer(element, context, computedStyle, styleEngine);
+      try {
+        renderer(element, context, computedStyle, styleEngine);
+      } catch (error) {
+        console.error(`Render error for element: ${element.tag}`, error);
+        // Continue rendering other elements even if one fails
+      }
     } else {
       console.warn(`No renderer for tag: ${element.tag}`);
     }
@@ -102,30 +108,26 @@ export class WidgetRenderers {
     this.logger?.logImGui(`ImGui.Begin(${JSON.stringify(title)});`);
     const opened = this.imgui.Begin(title);
     if (opened) {
-      this.renderChildren(element, context, styleEngine);
+      try {
+        this.renderChildren(element, context, styleEngine);
+      } catch (error) {
+        console.error('Error rendering window children:', error);
+      }
     }
+    
+    // Always call End() to match Begin(), even if there was an error
     this.logger?.logImGui('ImGui.End();');
     this.imgui.End();
   }
 
-  private renderText(element: TXMLElement, context: RenderContext, computedStyle?: ComputedStyle, _styleEngine?: any): void {
+  private renderText(element: TXMLElement, _context: RenderContext, _computedStyle?: ComputedStyle, _styleEngine?: any): void {
     if (!this.imgui) return;
     const text = this.getTextContent(element);
-    const style = computedStyle || this.getComputedStyle(element, context);
     
-    if ((style.color && style.color.type === 'color') || (style['text-color'] && style['text-color'].type === 'color')) {
-      const colorValue = style['text-color'] || style.color;
-      const color = this.intToImVec4(colorValue.value);
-      this.logger?.logImGui(`ImGui.TextColored([${color.x?.toFixed?.(3) ?? ''}, ${color.y?.toFixed?.(3) ?? ''}, ${color.z?.toFixed?.(3) ?? ''}, ${color.w?.toFixed?.(3) ?? ''}], ${JSON.stringify(text)});`);
-      // Use PushStyleColor for text elements (more reliable than TextColored)
-      const textCol = this.imgui?.Col?.Text ?? 4;
-      this.imgui.PushStyleColor?.(textCol, color.x, color.y, color.z, color.w);
-      this.imgui.Text(text);
-      this.imgui.PopStyleColor?.(1);
-    } else {
-      this.logger?.logImGui(`ImGui.Text(${JSON.stringify(text)});`);
-      this.imgui.Text(text);
-    }
+    // For now, skip TextColored to avoid the $$ property error
+    // TODO: Fix TextColored color parameter format for jsimgui
+    this.logger?.logImGui(`ImGui.Text(${JSON.stringify(text)});`);
+    this.imgui.Text(text);
   }
 
   private renderButton(element: TXMLElement, context: RenderContext, computedStyle?: ComputedStyle, _styleEngine?: any): void {
@@ -139,38 +141,32 @@ export class WidgetRenderers {
       this.imgui.SetNextItemWidth(style.width.value);
     }
     
-    // Apply button styling (background and text colors)
-    let pushedColors = 0;
-    
-    // Apply background color if specified
+    // Apply button color styling using ImGui color constants
+    let colorPushed = false;
     if (style['background-color'] && style['background-color'].type === 'color') {
-      const bgColor = this.intToImVec4(style['background-color'].value);
-      this.logger?.logImGui(`ImGui.PushStyleColor(ImGuiCol.Button, [${bgColor.x?.toFixed?.(3) ?? ''}, ${bgColor.y?.toFixed?.(3) ?? ''}, ${bgColor.z?.toFixed?.(3) ?? ''}, ${bgColor.w?.toFixed?.(3) ?? ''}]);`);
-      // Try to use the actual ImGui color constants, fallback to hardcoded values
-      // ImGuiCol_Button = 0, ImGuiCol_ButtonHovered = 1, ImGuiCol_ButtonActive = 2
-      const buttonCol = this.imgui?.Col?.Button ?? 0;
-      this.imgui?.PushStyleColor?.(buttonCol, bgColor.x, bgColor.y, bgColor.z, bgColor.w);
-      pushedColors++;
-    }
-    
-    // Apply text color if specified - use ButtonText instead of Text for buttons
-    if (style.color && style.color.type === 'color') {
-      const textColor = this.intToImVec4(style.color.value);
-      this.logger?.logImGui(`ImGui.PushStyleColor(ImGuiCol.ButtonText, [${textColor.x?.toFixed?.(3) ?? ''}, ${textColor.y?.toFixed?.(3) ?? ''}, ${textColor.z?.toFixed?.(3) ?? ''}, ${textColor.w?.toFixed?.(3) ?? ''}]);`);
-      // Use ButtonText color constant for button text
-      // ImGuiCol_ButtonText = 5 (this is the correct constant for button text)
-      const buttonTextCol = this.imgui?.Col?.ButtonText ?? 5;
-      this.imgui?.PushStyleColor?.(buttonTextCol, textColor.x, textColor.y, textColor.z, textColor.w);
-      pushedColors++;
+      const colorValue = style['background-color'].value;
+      
+      // Convert color to RGBA values
+      const r = ((colorValue >> 16) & 0xff) / 255;
+      const g = ((colorValue >> 8) & 0xff) / 255;
+      const b = (colorValue & 0xff) / 255;
+      const a = ((colorValue >> 24) & 0xff) / 255;
+      
+      // Use ImGui color constants if available
+      if (this.imgui.PushStyleColor && this.imgui.Col?.Button !== undefined) {
+        this.logger?.logImGui(`ImGui.PushStyleColor(ImGui.Col.Button, ${r}, ${g}, ${b}, ${a});`);
+        this.imgui.PushStyleColor(this.imgui.Col.Button, r, g, b, a);
+        colorPushed = true;
+      }
     }
     
     this.logger?.logImGui(`ImGui.Button(${JSON.stringify(text)});`);
     const clicked = this.imgui.Button(text);
     
-    // Pop all pushed colors
-    if (pushedColors > 0) {
-      this.logger?.logImGui(`ImGui.PopStyleColor(${pushedColors});`);
-      this.imgui?.PopStyleColor?.(pushedColors);
+    // Pop the color if we pushed it
+    if (colorPushed && this.imgui.PopStyleColor) {
+      this.logger?.logImGui('ImGui.PopStyleColor(1);');
+      this.imgui.PopStyleColor(1);
     }
     
     if (clicked && element.attributes.onClick) {
@@ -303,10 +299,17 @@ export class WidgetRenderers {
       .trim();
   }
 
-  private getComputedStyle(_element: TXMLElement, _context: RenderContext): ComputedStyle {
-    // This would use the style engine to compute styles
-    // For now, return empty style
-    return {};
+  private getComputedStyle(element: TXMLElement, context: RenderContext): ComputedStyle {
+    if (!this.styleEngine) {
+      return {};
+    }
+    
+    try {
+      return this.styleEngine.computeStyle(element, context.currentPath) || {};
+    } catch (error) {
+      console.error('Error computing style for element:', element.tag, error);
+      return {};
+    }
   }
 
   private generateId(element: TXMLElement, context: RenderContext): string {
@@ -324,22 +327,6 @@ export class WidgetRenderers {
     }
   }
 
-  private intToImVec4(color: number): ImVec4 {
-    const r = ((color >> 16) & 0xff) / 255;
-    const g = ((color >> 8) & 0xff) / 255;
-    const b = (color & 0xff) / 255;
-    const a = ((color >> 24) & 0xff) / 255;
-    
-    // Use ImVec4 from ImGui if available, otherwise create a simple object
-    if (this.imgui?.ImVec4) {
-      return new this.imgui.ImVec4(r, g, b, a);
-    } else {
-      // Fallback for when ImGui is not initialized - create a mock ImVec4
-      const mockVec4 = { x: r, y: g, z: b, w: a } as any;
-      mockVec4._ptr = null; // Add the required _ptr property
-      return mockVec4;
-    }
-  }
 }
 
 export function createWidgetRenderers(): WidgetRenderers {

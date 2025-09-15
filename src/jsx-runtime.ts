@@ -153,3 +153,39 @@ const App = () => jsxs("App", null, jsxs("Head", null), jsxs("Body", null,
 // Can be converted to TXML:
 const txml = jsxToTXML(App());
 */
+
+// React-like hooks for JSX components
+let stateId = 0;
+const stateMap = new Map<string, any>();
+
+export function useState<T>(initialValue: T): [T, (value: T | ((prev: T) => T)) => void] {
+  const id = `state_${stateId++}`;
+  
+  if (!stateMap.has(id)) {
+    stateMap.set(id, typeof initialValue === 'function' ? (initialValue as Function)() : initialValue);
+  }
+  
+  const setValue = (value: T | ((prev: T) => T)) => {
+    const currentValue = stateMap.get(id);
+    const newValue = typeof value === 'function' ? (value as Function)(currentValue) : value;
+    stateMap.set(id, newValue);
+  };
+  
+  return [stateMap.get(id), setValue];
+}
+
+// Simple root renderer
+export function createRoot(container: HTMLElement) {
+  return {
+    render: (element: TXMLElement) => {
+      // Convert JSX element to TXML and render
+      const txml = jsxToTXML(element);
+      console.log('Rendered TXML:', txml);
+      // In a real implementation, this would render to the container
+      if (container) {
+        container.textContent = txml;
+      }
+      return txml;
+    }
+  };
+}
