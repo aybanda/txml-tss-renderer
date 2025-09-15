@@ -83,8 +83,12 @@ export function jsx(type: string, props: any, key?: any): TXMLElement {
 }
 
 // JSX factory for multiple children
-export function jsxs(type: string, props: any, _key?: any): TXMLElement {
-  return jsx(type, props, _key);
+export function jsxs(type: string, props: any, ...children: any[]): TXMLElement {
+  return {
+    tag: type,
+    attributes: props || {},
+    children: children.filter(child => child != null)
+  };
 }
 
 // Fragment support
