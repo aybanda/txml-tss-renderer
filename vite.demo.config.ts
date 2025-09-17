@@ -5,7 +5,7 @@ export default defineConfig({
   root: 'demo',
   esbuild: {
     jsx: 'transform',
-    jsxFactory: 'jsx',
+    jsxFactory: 'jsxs',
     jsxFragment: 'Fragment'
   },
   build: {

@@ -67,12 +67,16 @@ export class WidgetRenderers {
   }
 
   render(element: TXMLElement, context: RenderContext, computedStyle?: ComputedStyle, styleEngine?: any): void {
+    console.log(`WidgetRenderers.render called for: ${element.tag}`);
     const renderer = this.renderers.get(element.tag);
     if (renderer) {
       try {
+        console.log(`Calling renderer for: ${element.tag}`);
         renderer(element, context, computedStyle, styleEngine);
+        console.log(`Renderer completed for: ${element.tag}`);
       } catch (error) {
         console.error(`Render error for element: ${element.tag}`, error);
+        console.error(`Error stack:`, error instanceof Error ? error.stack : 'No stack trace');
         // Continue rendering other elements even if one fails
       }
     } else {

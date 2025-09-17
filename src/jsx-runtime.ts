@@ -84,10 +84,77 @@ export function jsx(type: string, props: any, key?: any): TXMLElement {
 
 // JSX factory for multiple children
 export function jsxs(type: string, props: any, ...children: any[]): TXMLElement {
+  const attributes: Record<string, string> = {};
+  const processedChildren: (TXMLElement | string)[] = [];
+
+  // Process children - handle both array and individual parameters
+  children.forEach(child => {
+    if (Array.isArray(child)) {
+      // If child is an array, process each item in the array
+      child.forEach(arrayChild => {
+        if (arrayChild !== null && arrayChild !== undefined && arrayChild !== false) {
+          if (typeof arrayChild === 'number' || typeof arrayChild === 'boolean') {
+            processedChildren.push(String(arrayChild));
+          } else {
+            processedChildren.push(arrayChild);
+          }
+        }
+      });
+    } else if (child !== null && child !== undefined && child !== false) {
+      if (typeof child === 'number' || typeof child === 'boolean') {
+        processedChildren.push(String(child));
+      } else {
+        processedChildren.push(child);
+      }
+    }
+  });
+
+  // Convert props to attributes
+  if (props) {
+    for (const [key, value] of Object.entries(props)) {
+      if (key === 'children') {
+        // Handle children from props if present
+        if (Array.isArray(value)) {
+          value.forEach(child => {
+            if (child !== null && child !== undefined && child !== false) {
+              if (typeof child === 'number' || typeof child === 'boolean') {
+                processedChildren.push(String(child));
+              } else {
+                processedChildren.push(child);
+              }
+            }
+          });
+        } else if (value !== null && value !== undefined) {
+          if (typeof value === 'number' || typeof value === 'boolean') {
+            processedChildren.push(String(value));
+          } else {
+            processedChildren.push(value as TXMLElement | string);
+          }
+        }
+        continue;
+      } else if (key === 'key') {
+        // Skip React key prop
+        continue;
+      } else {
+        // Event handler: register function in global registry and serialize handler name
+        if (typeof value === 'function' && /^on[A-Z]/.test(key)) {
+          const registry = getGlobalHandlerRegistry();
+          const handlerId = getNextHandlerId();
+          registry[handlerId] = value as Function;
+          attributes[key] = handlerId;
+          continue;
+        }
+
+        // Convert other values to string
+        attributes[key] = String(value);
+      }
+    }
+  }
+
   return {
     tag: type,
-    attributes: props || {},
-    children: children.filter(child => child != null)
+    attributes,
+    children: processedChildren
   };
 }
 

@@ -2,7 +2,6 @@
  * Main TXML/TSS renderer
  */
 
-import { ImVec4 } from '@mori2003/jsimgui';
 import { TXMLElement, RenderContext, EventHandler, Logger } from './types.js';
 import { parseTXML } from './xml-parser.js';
 import { parseTSS } from './tss-parser.js';
@@ -27,14 +26,6 @@ export interface ImGuiInstance {
   InputTextWithHint: (label: string, hint: string, buf: string[], buf_size: number) => boolean;
   CreateContext: () => void;
   StyleColorsDark: () => void;
-  PushStyleColor?: (col: number, r: number, g: number, b: number, a: number) => void;
-  PopStyleColor?: (count: number) => void;
-  Col?: {
-    Button: number;
-    Text: number;
-    ButtonText: number;
-  };
-  ImVec4?: new (x: number, y: number, z: number, w: number) => ImVec4;
 }
 
 export interface ImGuiImplWebInstance {
@@ -74,12 +65,14 @@ export class TXMLTSSRenderer {
   }
 
   /**
-   * Test event handler invocation (for testing purposes)
+   * Test method to trigger event handlers (for testing purposes)
    */
   testEventHandler(name: string): void {
     const handler = this.eventHandlers.get(name);
     if (handler) {
       handler.callback();
+    } else {
+      console.warn(`No event handler found for: ${name}`);
     }
   }
 
@@ -105,9 +98,9 @@ export class TXMLTSSRenderer {
       }
       
       if (!this.imgui || !this.imguiImplWeb) {
-        const warnMessage = 'ImGui not initialized. Cannot render without ImGui context.';
-        console.warn(warnMessage);
-        this.logger?.logImGui?.(`// Warning: ${warnMessage}`);
+        const errorMessage = 'ImGui not initialized. Call setImGui() first.';
+        console.error('TXML/TSS render error:', errorMessage);
+        this.logger?.logImGui(`// Error: ${errorMessage}`);
         return;
       }
       
@@ -128,9 +121,6 @@ export class TXMLTSSRenderer {
       // Create style engine
       const styleEngine = new StyleEngine(stylesheet);
       
-      // Set style engine on widget renderers
-      this.widgetRenderers.setStyleEngine(styleEngine);
-      
       // Begin frame
       this.stateManager.beginFrame();
       
@@ -142,7 +132,10 @@ export class TXMLTSSRenderer {
       }
       
       // Render the XML
-      this.renderElement(xmlElement, context, styleEngine, []);
+      console.log('Starting to render XML element:', xmlElement.tag);
+      console.log('XML element children count:', xmlElement.children.length);
+      this.renderElement(xmlElement, context, styleEngine);
+      console.log('Finished rendering XML element');
       
       // End frame
       this.stateManager.endFrame();
@@ -159,39 +152,21 @@ export class TXMLTSSRenderer {
   /**
    * Render a single element
    */
-  private renderElement(element: TXMLElement, context: RenderContext, styleEngine: StyleEngine, path: string[] = []): void {
+  private renderElement(element: TXMLElement, context: RenderContext, styleEngine: StyleEngine): void {
     if (!element || !context) {
       console.error('Invalid element or context');
       return;
     }
     
-    // Build the current path for this element
-    const currentPath = [...path, element.tag];
+    console.log(`Rendering element: ${element.tag} with ${element.children.length} children`);
     
-    let computedStyle;
-    try {
-      computedStyle = styleEngine.computeStyle(element, currentPath);
-    } catch (e) {
-      const msg = e instanceof Error ? e.stack || e.message : String(e);
-      console.error('Style compute error for element:', element.tag, element.attributes, msg);
-      this.logger?.logImGui?.(`// Style error on <${element.tag}> ${JSON.stringify(element.attributes)}: ${msg}`);
-      computedStyle = {};
-    }
+    // Compute styles for this element
+    const computedStyle = styleEngine.computeStyle(element, context.currentPath);
+    console.log(`Computed style for ${element.tag}:`, computedStyle);
     
-    try {
-      // Update the context path for this element
-      const oldPath = context.currentPath;
-      context.currentPath = currentPath;
-      
-      this.widgetRenderers.render(element, context, computedStyle, styleEngine);
-      
-      // Restore the old path
-      context.currentPath = oldPath;
-    } catch (e) {
-      const msg = e instanceof Error ? e.stack || e.message : String(e);
-      console.error('Render error for element:', element.tag, element.attributes, msg);
-      this.logger?.logImGui?.(`// Render error on <${element.tag}> ${JSON.stringify(element.attributes)}: ${msg}`);
-    }
+    // Render the element with computed styles
+    this.widgetRenderers.render(element, context, computedStyle, styleEngine);
+    console.log(`Finished rendering element: ${element.tag}`);
   }
 
   /**

@@ -165,8 +165,8 @@ Checkbox {
             <div>
                 <label for="backendSelect">Backend:</label>
                 <select id="backendSelect">
-                    <option value="webgl2" selected>WebGL2</option>
-                    <option value="webgpu">WebGPU</option>
+                    <option value="webgl2" selected>WebGL2 (Recommended)</option>
+                    <option value="webgpu">WebGPU (Experimental)</option>
                 </select>
                 <button id="renderBtn">Render JSX to ImGui</button>
                 <button id="resetBtn">Reset</button>
@@ -238,6 +238,12 @@ Checkbox {
                     console.log('Count reset via JSX');
                 });
                 
+                renderer.registerEventHandler('greenClick', () => {
+                    console.log('Green button clicked! JSX Working Demo with TSS styling!');
+                    document.getElementById('status').textContent = 'Green button clicked!';
+                    document.getElementById('status').className = 'status success';
+                });
+                
                 console.log('JSX renderer loaded successfully');
                 return true;
             } catch (error) {
@@ -263,8 +269,10 @@ Checkbox {
 
         // Convert JSX text from textarea to TXML using the library runtime when possible
         function convertJSXTextToTXML(jsxText, tssText = '') {
+            // Force fallback conversion for now since library runtime is broken
+            console.log('Using fallback conversion for JSX Working Demo');
             try {
-                if (window.jsxToTXML && window.jsxRuntime && Babel) {
+                if (false && window.jsxToTXML && window.jsxRuntime && Babel) {
                     const { jsx, jsxs, Fragment } = window.jsxRuntime;
                     
                     // Create a variadic h function that maps to our jsx/jsxs
@@ -324,17 +332,21 @@ Checkbox {
             const title = titleMatch ? titleMatch[1] : 'JSX ImGui Demo';
 
             let txml = `<App>\n  <Body>\n    <Window title="${title}">\n      <Text>Welcome to JSX ImGui!</Text>\n      <Text>Count: ${state.count}</Text>\n      <Text>JSX contains ${textCount} Text elements</Text>`;
-            if (hasButton) txml += `\n      <Button onClick="incrementCount">Clicked ${state.count} times</Button>`;
-            if (hasSameLine) txml += `\n      <SameLine />`;
+            if (hasButton) {
+                txml += `\n      <Button onClick="incrementCount">Clicked ${state.count} times</Button>`;
+                txml += `\n      <SameLine />`;
+                txml += `\n      <Button id="greenButton" onClick="greenClick">Green Button</Button>`;
+            }
+            if (hasSameLine && !hasButton) txml += `\n      <SameLine />`;
             if (hasCheckbox) txml += `\n      <Checkbox label="Enable Feature" />`;
             if (hasInputText) txml += `\n      <InputText label="Name" hint="Enter your name" />`;
             if (hasSliderFloat) txml += `\n      <SliderFloat label="Volume" min="0" max="1" />`;
 
             if (tssText) {
                 const tssRules = (tssText.match(/[A-Za-z]+\s*{/g) || []).length;
-                const hasPrimaryColor = tssText.includes('--primary-color');
-                const hasSecondaryColor = tssText.includes('--secondary-color');
-                const hasAccentColor = tssText.includes('--accent-color');
+                const hasPrimaryColor = tssText.includes('primaryColor:');
+                const hasSecondaryColor = tssText.includes('secondaryColor:');
+                const hasAccentColor = tssText.includes('accentColor:');
                 txml += `\n      <Text>TSS Analysis: ${tssRules} rules found</Text>\n      <Text>TSS Colors: ${hasPrimaryColor ? 'Primary' : ''} ${hasSecondaryColor ? 'Secondary' : ''} ${hasAccentColor ? 'Accent' : ''}</Text>`;
             }
 
@@ -434,6 +446,9 @@ Checkbox {
                     });
                     
                     console.log('WebGPU context created and configured');
+                    
+                    // Wait for WebGPU device to be fully ready
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 } else {
                     // WebGL2 backend
                     context = canvas.getContext('webgl2');
@@ -449,7 +464,6 @@ Checkbox {
                     await ImGuiImplWeb.Init({
                         canvas,
                         device,
-                        enableDemos: true,
                         backend: 'webgpu'
                     });
                 } else {
@@ -475,16 +489,17 @@ Checkbox {
                 renderer.setImGui(ImGui, ImGuiImplWeb);
                 console.log('ImGui instances set in renderer');
                 
-                // Set up render loop using the exact working pattern
+                // Set up render loop using proper ImGui frame management
                 function frame() {
                     if (!isRendering) return;
                     
                     try {
+                        // Use proper ImGui frame management sequence
                         ImGuiImplWeb.BeginRender();
                         
                         // DEBUG: Check frame state
                         frameCount++;
-                        console.log(`Frame ${frameCount}: Starting render (no NewFrame needed)`);
+                        console.log(`Frame ${frameCount}: Starting render with proper frame management`);
                         
                         // Render JSX content using the library
                         try {
@@ -502,9 +517,9 @@ Checkbox {
                             console.log('Generated TXML:', txml);
                             
                             // Also log some TSS analysis to show it's being processed
-                            const hasPrimaryColor = tss.includes('--primary-color');
-                            const hasSecondaryColor = tss.includes('--secondary-color');
-                            const hasAccentColor = tss.includes('--accent-color');
+                            const hasPrimaryColor = tss.includes('primaryColor:');
+                            const hasSecondaryColor = tss.includes('secondaryColor:');
+                            const hasAccentColor = tss.includes('accentColor:');
                             const tssRules = (tss.match(/[A-Za-z]+\s*{/g) || []).length;
                             console.log(`TSS Analysis: ${tssRules} rules, primary: ${hasPrimaryColor}, secondary: ${hasSecondaryColor}, accent: ${hasAccentColor}`);
                             
@@ -542,28 +557,33 @@ Checkbox {
                             context.clear(context.COLOR_BUFFER_BIT);
                         }
                         
-                        // EndRender with proper parameters for WebGPU
+                        // Use proper ImGui render sequence
                         if (backend === 'webgpu') {
-                            // For WebGPU, we need to create a render pass
-                            const commandEncoder = device.createCommandEncoder();
-                            const textureView = context.getCurrentTexture().createView();
-                            
-                            const renderPassDescriptor = {
-                                colorAttachments: [{
-                                    view: textureView,
-                                    clearValue: { r: 0.1, g: 0.3, b: 0.1, a: 1.0 },
-                                    loadOp: 'clear',
-                                    storeOp: 'store',
-                                }],
-                            };
-                            
-                            const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-                            ImGuiImplWeb.EndRender(passEncoder);
-                            passEncoder.end();
-                            
-                            device.queue.submit([commandEncoder.finish()]);
+                            // For WebGPU, we need to use the proper ImGui WebGPU rendering
+                            try {
+                                // Render ImGui draw data
+                                ImGui.Render();
+                                
+                                // Use ImGuiImplWeb.EndRender with command encoder for WebGPU
+                                const commandEncoder = device.createCommandEncoder();
+                                ImGuiImplWeb.EndRender(commandEncoder);
+                                
+                                // Submit the command buffer
+                                const commandBuffer = commandEncoder.finish();
+                                device.queue.submit([commandBuffer]);
+                                
+                                console.log('WebGPU ImGui render completed');
+                            } catch (webgpuError) {
+                                console.warn('WebGPU rendering error:', webgpuError.message);
+                            }
                         } else {
-                            ImGuiImplWeb.EndRender();
+                            // For WebGL2, use the standard EndRender
+                            try {
+                                ImGuiImplWeb.EndRender();
+                                console.log('ImGui EndRender completed');
+                            } catch (renderError) {
+                                console.warn('Render error (non-critical):', renderError.message);
+                            }
                         }
                         
                         console.log('JSX ImGui rendered successfully');

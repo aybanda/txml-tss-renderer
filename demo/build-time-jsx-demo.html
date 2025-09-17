@@ -71,13 +71,14 @@
                 <p>This demo shows JSX compiled at build time (not runtime Babel).</p>
                 <p>The JSX is pre-compiled to TXML during the build process.</p>
                 <p>No runtime Babel dependency - production ready!</p>
+                <p><strong>Note:</strong> WebGPU has compatibility issues with jsimgui library. Use WebGL2 for now.</p>
             </div>
             
             <div>
                 <label for="backendSelect">Backend:</label>
                 <select id="backendSelect">
-                    <option value="webgl2" selected>WebGL2</option>
-                    <option value="webgpu">WebGPU</option>
+                    <option value="webgl2" selected>WebGL2 (Working)</option>
+                    <option value="webgpu">WebGPU (Broken - jsimgui issue)</option>
                 </select>
                 <button id="renderBtn">Render Build-time JSX</button>
                 <button id="resetBtn">Reset</button>
@@ -97,6 +98,7 @@
     <script type="module">
         let ImGui = null;
         let ImGuiImplWeb = null;
+        let ImGuiImplWGPU = null;
         let isRendering = false;
         let animationId = null;
         let context = null;
@@ -142,7 +144,10 @@
                 const jsimgui = await import('https://esm.sh/@mori2003/jsimgui');
                 ImGui = jsimgui.ImGui;
                 ImGuiImplWeb = jsimgui.ImGuiImplWeb;
+                ImGuiImplWGPU = jsimgui.ImGuiImplWGPU;
                 console.log('jsimgui loaded successfully');
+                console.log('Available ImGui modules:', Object.keys(jsimgui));
+                console.log('ImGuiImplWGPU available:', typeof ImGuiImplWGPU);
                 
                 const canvas = document.getElementById('canvas');
                 console.log('Canvas element:', canvas);
@@ -171,20 +176,37 @@
                     }
                     
                     // Request WebGPU adapter and device
-                    const adapter = await navigator.gpu.requestAdapter();
+                    const adapter = await navigator.gpu.requestAdapter({
+                        powerPreference: 'high-performance'
+                    });
                     if (!adapter) {
                         throw new Error('WebGPU adapter not available');
                     }
                     
-                    device = await adapter.requestDevice();
-                    
-                    // Configure WebGPU context
-                    context.configure({
-                        device,
-                        format: navigator.gpu.getPreferredCanvasFormat(),
+                    device = await adapter.requestDevice({
+                        requiredFeatures: [],
+                        requiredLimits: {}
                     });
                     
+                    // Configure WebGPU context
+                    const preferredFormat = navigator.gpu.getPreferredCanvasFormat();
+                    context.configure({
+                        device,
+                        format: preferredFormat,
+                        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+                        alphaMode: 'premultiplied'
+                    });
+                    
+                    // Store device globally for use in render loop
+                    window.webgpuDevice = device;
+                    
                     console.log('WebGPU context created and configured');
+                    console.log('WebGPU device:', device);
+                    console.log('WebGPU context:', context);
+                    console.log('WebGPU preferred format:', preferredFormat);
+                    
+                    // Wait for WebGPU device to be fully ready
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 } else {
                     // WebGL2 backend
                     context = canvas.getContext('webgl2');
@@ -198,13 +220,36 @@
                 console.log('Initializing ImGui...');
                 if (backend === 'webgpu') {
                     console.log('WebGPU: Initializing ImGui with WebGPU backend...');
-                    await ImGuiImplWeb.Init({
-                        canvas,
-                        device,
-                        enableDemos: true,
-                        backend: 'webgpu'
-                    });
-                    console.log('WebGPU: ImGui initialization completed');
+                    try {
+                        // Initialize ImGui with WebGPU backend
+                        console.log('WebGPU: Initializing with ImGuiImplWeb.Init');
+                        await ImGuiImplWeb.Init({
+                            canvas,
+                            device,
+                            backend: 'webgpu'
+                        });
+                        
+                        // Try additional WebGPU-specific initialization if available
+                        if (ImGuiImplWGPU && ImGuiImplWGPU.Init) {
+                            console.log('WebGPU: Additional setup with ImGuiImplWGPU.Init');
+                            try {
+                                await ImGuiImplWGPU.Init({
+                                    canvas: canvas,
+                                    device: device
+                                });
+                                console.log('WebGPU: ImGuiImplWGPU.Init completed');
+                            } catch (wgpuError) {
+                                console.warn('WebGPU: ImGuiImplWGPU.Init failed, continuing with ImGuiImplWeb:', wgpuError.message);
+                            }
+                        } else {
+                            console.log('WebGPU: ImGuiImplWGPU not available, using ImGuiImplWeb only');
+                        }
+                        
+                        console.log('WebGPU: ImGui initialization completed');
+                    } catch (error) {
+                        console.error('WebGPU: ImGui initialization failed:', error);
+                        throw error;
+                    }
                 } else {
                     console.log('WebGL2: Initializing ImGui with WebGL2 backend...');
                     await ImGuiImplWeb.Init({
@@ -238,6 +283,12 @@
                 }
                 
                 // Create renderer once outside the render loop
+                console.log('Checking if renderer should be created...');
+                console.log('buildTimeTXML exists:', !!buildTimeTXML);
+                console.log('buildTimeTSS exists:', !!buildTimeTSS);
+                console.log('buildTimeTXML value:', buildTimeTXML);
+                console.log('buildTimeTSS value:', buildTimeTSS);
+                
                 if (buildTimeTXML && buildTimeTSS) {
                     console.log('Creating TXML/TSS renderer...');
                     const { TXMLTSSRenderer, DefaultConsoleLogger } = await import('../dist/index.js');
@@ -261,6 +312,8 @@
                     });
                     
                     console.log('TXML/TSS renderer created and configured');
+                } else {
+                    console.log('Renderer NOT created - missing buildTimeTXML or buildTimeTSS');
                 }
                 
                 // Set up render loop
@@ -281,10 +334,15 @@
                                 console.log('Rendering build-time JSX content...');
                                 console.log('Renderer imgui:', renderer.imgui);
                                 console.log('Renderer imguiImplWeb:', renderer.imguiImplWeb);
+                                console.log('TXML to render:', buildTimeTXML);
+                                console.log('TSS to render:', buildTimeTSS);
                                 renderer.render(buildTimeTXML, buildTimeTSS);
                                 console.log('Build-time JSX rendered successfully');
                             } catch (error) {
                                 console.error('Error rendering build-time JSX:', error);
+                                console.error('Error stack:', error.stack);
+                                console.error('TXML that failed:', buildTimeTXML);
+                                console.error('TSS that failed:', buildTimeTSS);
                                 // Fallback to default demo if custom rendering fails
                                 ImGui.ShowDemoWindow();
                             }
@@ -300,7 +358,69 @@
                         }
                         
                         // Use proper ImGui render sequence
-                        ImGuiImplWeb.EndRender();
+                        if (backend === 'webgpu') {
+                            // For WebGPU, try the simplest approach first
+                            try {
+                                // Render ImGui draw data
+                                ImGui.Render();
+                                
+                                // Try the standard EndRender method first
+                                ImGuiImplWeb.EndRender();
+                                console.log('WebGPU: Used standard ImGuiImplWeb.EndRender');
+                                
+                            } catch (webgpuError) {
+                                console.warn('WebGPU standard EndRender failed:', webgpuError.message);
+                                
+                                // If standard fails, try with command encoder
+                                try {
+                                    const commandEncoder = window.webgpuDevice.createCommandEncoder();
+                                    ImGuiImplWeb.EndRender(commandEncoder);
+                                    const commandBuffer = commandEncoder.finish();
+                                    window.webgpuDevice.queue.submit([commandBuffer]);
+                                    console.log('WebGPU: Used EndRender with command encoder');
+                                } catch (encoderError) {
+                                    console.warn('WebGPU command encoder failed:', encoderError.message);
+                                    
+                                    // Last resort: try manual WebGPU rendering
+                                    try {
+                                        const commandEncoder = window.webgpuDevice.createCommandEncoder();
+                                        const textureView = context.getCurrentTexture().createView();
+                                        
+                                        const renderPassDescriptor = {
+                                            colorAttachments: [{
+                                                view: textureView,
+                                                clearValue: { r: 0.1, g: 0.3, b: 0.1, a: 1.0 },
+                                                loadOp: 'clear',
+                                                storeOp: 'store',
+                                            }],
+                                        };
+                                        
+                                        const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+                                        
+                                        // Try to render ImGui draw data
+                                        const drawData = ImGui.GetDrawData();
+                                        if (ImGuiImplWGPU && ImGuiImplWGPU.RenderDrawData) {
+                                            ImGuiImplWGPU.RenderDrawData(drawData, window.webgpuDevice, passEncoder);
+                                        }
+                                        
+                                        passEncoder.end();
+                                        const commandBuffer = commandEncoder.finish();
+                                        window.webgpuDevice.queue.submit([commandBuffer]);
+                                        console.log('WebGPU: Used manual WebGPU rendering');
+                                    } catch (manualError) {
+                                        console.warn('WebGPU manual rendering failed:', manualError.message);
+                                    }
+                                }
+                            }
+                        } else {
+                            // For WebGL2, use the standard EndRender
+                            try {
+                                ImGuiImplWeb.EndRender();
+                                console.log('ImGui EndRender completed');
+                            } catch (renderError) {
+                                console.warn('Render error (non-critical):', renderError.message);
+                            }
+                        }
                         
                         console.log('Build-time JSX ImGui rendered successfully');
                     } catch (error) {

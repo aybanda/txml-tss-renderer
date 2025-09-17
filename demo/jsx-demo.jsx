@@ -1,4 +1,4 @@
-import { createRoot, useState, jsx, jsxs, Fragment, jsxToTXML } from '../dist/index.js';
+import { createRoot, useState, jsxs, jsxToTXML } from '../dist/index.js';
  
 function App() {
   const [count, setCount] = useState(0);
