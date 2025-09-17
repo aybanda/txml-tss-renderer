@@ -1,7 +1,7 @@
 // TSS parser tests
 
 import { describe, it, expect, vi } from 'vitest';
-import { parseTSS, TSSParseError } from '../tss-parser.js';
+import { parseTSS } from '../tss-parser.js';
 
 describe('TSS Parser', () => {
   it('should parse simple CSS rules', () => {
@@ -19,10 +19,11 @@ describe('TSS Parser', () => {
     
     const result = parseTSS(tss);
     
-    expect(result.rules).toHaveLength(2);
-    expect(result.rules[0].selector).toBe('Window');
-    expect(result.rules[0].properties.color).toBe('white');
-    expect(result.rules[0].properties['background-color']).toBe('#333');
+    expect(result).not.toBeNull();
+    expect(result!.rules).toHaveLength(2);
+    expect(result!.rules[0].selector).toBe('Window');
+    expect(result!.rules[0].properties.color).toBe('white');
+    expect(result!.rules[0].properties['background-color']).toBe('#333');
   });
 
   it('should parse TSS variables', () => {
@@ -41,14 +42,15 @@ describe('TSS Parser', () => {
     
     const result = parseTSS(tss);
     
-    expect(result.variables.size).toBe(3);
-    expect(result.variables.get('primaryColor')).toBe('#4CAF50');
-    expect(result.variables.get('secondaryColor')).toBe('#2196F3');
-    expect(result.variables.get('textColor')).toBe('#ffffff');
+    expect(result).not.toBeNull();
+    expect(result!.variables.size).toBe(3);
+    expect(result!.variables.get('primaryColor')).toBe('#4CAF50');
+    expect(result!.variables.get('secondaryColor')).toBe('#2196F3');
+    expect(result!.variables.get('textColor')).toBe('#ffffff');
     
-    expect(result.rules).toHaveLength(1);
-    expect(result.rules[0].properties['background-color']).toBe('primaryColor');
-    expect(result.rules[0].properties['text-color']).toBe('textColor');
+    expect(result!.rules).toHaveLength(1);
+    expect(result!.rules[0].properties['background-color']).toBe('primaryColor');
+    expect(result!.rules[0].properties['text-color']).toBe('textColor');
   });
 
   it('should calculate specificity correctly', () => {
@@ -60,9 +62,10 @@ describe('TSS Parser', () => {
     
     const result = parseTSS(tss);
     
-    expect(result.rules[0].specificity).toBe(1); // tag
-    expect(result.rules[1].specificity).toBe(10); // class
-    expect(result.rules[2].specificity).toBe(100); // id
+    expect(result).not.toBeNull();
+    expect(result!.rules[0].specificity).toBe(1); // tag
+    expect(result!.rules[1].specificity).toBe(10); // class
+    expect(result!.rules[2].specificity).toBe(100); // id
   });
 
   it('should handle descendant selectors', () => {
@@ -78,9 +81,10 @@ describe('TSS Parser', () => {
     
     const result = parseTSS(tss);
     
-    expect(result.rules).toHaveLength(2);
-    expect(result.rules[0].selector).toBe('Window Button');
-    expect(result.rules[1].selector).toBe('.container .item');
+    expect(result).not.toBeNull();
+    expect(result!.rules).toHaveLength(2);
+    expect(result!.rules[0].selector).toBe('Window Button');
+    expect(result!.rules[1].selector).toBe('.container .item');
   });
 
   it('should warn on unknown properties', () => {
@@ -137,10 +141,11 @@ describe('TSS Parser', () => {
     
     const result = parseTSS(tss);
     
-    expect(result.rules).toHaveLength(3);
-    expect(result.rules[0].selector).toBe('Window');
-    expect(result.rules[1].selector).toBe('Window Button');
-    expect(result.rules[2].selector).toBe('Window Button:hover');
+    expect(result).not.toBeNull();
+    expect(result!.rules).toHaveLength(3);
+    expect(result!.rules[0].selector).toBe('Window');
+    expect(result!.rules[1].selector).toBe('Window Button');
+    expect(result!.rules[2].selector).toBe('Window Button:hover');
   });
 
   it('should handle quoted values', () => {
@@ -153,8 +158,9 @@ describe('TSS Parser', () => {
     
     const result = parseTSS(tss);
     
-    expect(result.rules[0].properties['font-family']).toBe('Arial, sans-serif');
-    expect(result.rules[0].properties.content).toBe('Hello World');
+    expect(result).not.toBeNull();
+    expect(result!.rules[0].properties['font-family']).toBe('Arial, sans-serif');
+    expect(result!.rules[0].properties.content).toBe('Hello World');
   });
 
   it('should handle at-rules', () => {
@@ -173,9 +179,10 @@ describe('TSS Parser', () => {
     const result = parseTSS(tss);
     
     // At-rules should be skipped
-    expect(result.rules).toHaveLength(1);
-    expect(result.rules[0].selector).toBe('Window');
-    expect(result.rules[0].properties['background-color']).toBe('#333');
+    expect(result).not.toBeNull();
+    expect(result!.rules).toHaveLength(1);
+    expect(result!.rules[0].selector).toBe('Window');
+    expect(result!.rules[0].properties['background-color']).toBe('#333');
   });
 });
 

@@ -1,7 +1,7 @@
 // TXML parser tests
 
 import { describe, it, expect, vi } from 'vitest';
-import { parseTXML, TXMLParseError } from '../xml-parser.js';
+import { parseTXML } from '../xml-parser.js';
 
 describe('TXML Parser', () => {
   it('should parse simple App structure', () => {
@@ -14,10 +14,11 @@ describe('TXML Parser', () => {
     
     const result = parseTXML(xml);
     
-    expect(result.tag).toBe('App');
-    expect(result.children).toHaveLength(2);
-    expect(result.children[0]).toMatchObject({ tag: 'Head' });
-    expect(result.children[1]).toMatchObject({ tag: 'Body' });
+    expect(result).not.toBeNull();
+    expect(result!.tag).toBe('App');
+    expect(result!.children).toHaveLength(2);
+    expect(result!.children[0]).toMatchObject({ tag: 'Head' });
+    expect(result!.children[1]).toMatchObject({ tag: 'Body' });
   });
 
   it('should parse attributes', () => {
@@ -30,7 +31,8 @@ describe('TXML Parser', () => {
     `;
     
     const result = parseTXML(xml);
-    const window = result.children[0] as any;
+    expect(result).not.toBeNull();
+    const window = result!.children[0] as any;
     
     expect(window.attributes.title).toBe('Test Window');
     expect(window.attributes.id).toBe('main-window');
@@ -44,7 +46,8 @@ describe('TXML Parser', () => {
     `;
     
     const result = parseTXML(xml);
-    const text = result.children[0] as any;
+    expect(result).not.toBeNull();
+    const text = result!.children[0] as any;
     
     expect(text.children[0]).toBe('Hello, World!');
   });
@@ -59,9 +62,10 @@ describe('TXML Parser', () => {
     
     const result = parseTXML(xml);
     
-    expect(result.children).toHaveLength(2);
-    expect(result.children[0]).toMatchObject({ tag: 'Spacing', children: [] });
-    expect(result.children[1]).toMatchObject({ tag: 'Separator', children: [] });
+    expect(result).not.toBeNull();
+    expect(result!.children).toHaveLength(2);
+    expect(result!.children[0]).toMatchObject({ tag: 'Spacing', children: [] });
+    expect(result!.children[1]).toMatchObject({ tag: 'Separator', children: [] });
   });
 
   it('should warn on unknown tags', () => {
@@ -122,7 +126,8 @@ describe('TXML Parser', () => {
     `;
     
     const result = parseTXML(xml);
-    const body = result.children[1] as any;
+    expect(result).not.toBeNull();
+    const body = result!.children[1] as any;
     const window = body.children[0] as any;
     
     expect(window.tag).toBe('Window');
