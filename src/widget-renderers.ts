@@ -44,6 +44,11 @@ export class WidgetRenderers {
   }
 
   setImGui(imgui: ImGuiInstance): void {
+    // Runtime type validation
+    if (typeof imgui !== 'object' || imgui === null) {
+      throw new Error(`setImGui: imgui must be an object, got ${typeof imgui}`);
+    }
+    
     this.imgui = imgui;
   }
 
@@ -67,6 +72,19 @@ export class WidgetRenderers {
   }
 
   render(element: TXMLElement, context: RenderContext, computedStyle?: ComputedStyle, styleEngine?: any): void {
+    // Runtime type validation
+    if (typeof element !== 'object' || element === null || Array.isArray(element)) {
+      throw new Error(`render: element must be a TXMLElement object, got ${typeof element}`);
+    }
+    
+    if (!element.tag || typeof element.tag !== 'string') {
+      throw new Error(`render: element.tag must be a string, got ${typeof element.tag}`);
+    }
+    
+    if (typeof context !== 'object' || context === null) {
+      throw new Error(`render: context must be a RenderContext object, got ${typeof context}`);
+    }
+    
     console.log(`WidgetRenderers.render called for: ${element.tag}`);
     const renderer = this.renderers.get(element.tag);
     if (renderer) {
@@ -274,21 +292,37 @@ export class WidgetRenderers {
     context.currentPath.push(element.tag);
     
     for (const child of element.children) {
-      if (typeof child === 'string') {
-        // Text content - render as text
-        if (child.trim() && this.imgui) {
-          this.imgui.Text(child.trim());
+      try {
+        if (typeof child === 'string') {
+          // Text content - render as text
+          if (child.trim() && this.imgui) {
+            this.imgui.Text(child.trim());
+          }
+        } else {
+          // Element - render recursively with computed styles
+          let computedStyle;
+          try {
+            computedStyle = styleEngine?.computeStyle(child, context.currentPath) || {};
+          } catch (e) {
+            console.error('Style compute error for child element:', child.tag, e);
+            computedStyle = {};
+          }
+          
+          // Add error boundary around individual child rendering
+          try {
+            this.render(child, context, computedStyle, styleEngine);
+          } catch (renderError) {
+            const errorMessage = renderError instanceof Error ? renderError.message : String(renderError);
+            console.error(`Failed to render child element: ${child.tag}`, renderError);
+            // Continue rendering other children even if one fails
+            this.logger?.logImGui(`// Error: Failed to render ${child.tag} - ${errorMessage}`);
+          }
         }
-      } else {
-        // Element - render recursively with computed styles
-        let computedStyle;
-        try {
-          computedStyle = styleEngine?.computeStyle(child, context.currentPath) || {};
-        } catch (e) {
-          console.error('Style compute error for child element:', child.tag, e);
-          computedStyle = {};
-        }
-        this.render(child, context, computedStyle, styleEngine);
+      } catch (childError) {
+        const errorMessage = childError instanceof Error ? childError.message : String(childError);
+        console.error(`Critical error rendering child:`, childError);
+        // Continue with next child - don't let one failure break everything
+        this.logger?.logImGui(`// Critical Error: Child rendering failed - ${errorMessage}`);
       }
     }
     

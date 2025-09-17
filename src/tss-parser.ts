@@ -297,9 +297,26 @@ export class TSSParser {
   }
 }
 
-export function parseTSS(tss: string): TSSStylesheet {
-  const parser = new TSSParser(tss);
-  return parser.parse();
+export function parseTSS(tss: string): TSSStylesheet | null {
+  try {
+    if (!tss || typeof tss !== 'string') {
+      console.error('Invalid TSS input: must be a non-empty string');
+      return null;
+    }
+    
+    const parser = new TSSParser(tss);
+    return parser.parse();
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('TSS parsing failed:', errorMessage);
+    console.error('Input TSS:', tss.substring(0, 200) + (tss.length > 200 ? '...' : ''));
+    
+    // Return a safe fallback stylesheet instead of crashing
+    return {
+      variables: new Map(),
+      rules: []
+    };
+  }
 }
 
 

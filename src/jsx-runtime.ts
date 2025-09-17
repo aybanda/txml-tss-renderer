@@ -22,6 +22,11 @@ function getNextHandlerId(): string {
 
 // JSX factory function
 export function jsx(type: string, props: any, key?: any): TXMLElement {
+  // Runtime type validation
+  if (typeof type !== 'string') {
+    throw new Error(`JSX type must be a string, got ${typeof type}`);
+  }
+  
   const attributes: Record<string, string> = {};
   const children: (TXMLElement | string)[] = [];
 
@@ -84,6 +89,11 @@ export function jsx(type: string, props: any, key?: any): TXMLElement {
 
 // JSX factory for multiple children
 export function jsxs(type: string, props: any, ...children: any[]): TXMLElement {
+  // Runtime type validation
+  if (typeof type !== 'string') {
+    throw new Error(`JSX type must be a string, got ${typeof type}`);
+  }
+  
   const attributes: Record<string, string> = {};
   const processedChildren: (TXMLElement | string)[] = [];
 
@@ -161,6 +171,53 @@ export function jsxs(type: string, props: any, ...children: any[]): TXMLElement 
 // Fragment support
 export const Fragment = Symbol('Fragment');
 
+// Allowed tag names for security validation
+const ALLOWED_TAGS = new Set([
+  'App', 'Head', 'Body', 'Window', 'Text', 'Button', 'InputText', 
+  'SliderFloat', 'Checkbox', 'SameLine', 'Separator', 'Spacing'
+]);
+
+// Allowed attribute names for security validation
+const ALLOWED_ATTRIBUTES = new Set([
+  'title', 'label', 'hint', 'value', 'min', 'max', 'checked', 
+  'onClick', 'onChange', 'id', 'width', 'height', 'color', 
+  'background-color', 'text-color'
+]);
+
+// Validate and sanitize tag name
+function validateTagName(tag: string): string {
+  if (!tag || typeof tag !== 'string') {
+    throw new Error('Invalid tag name: must be a non-empty string');
+  }
+  
+  // Remove any potentially dangerous characters
+  const sanitized = tag.replace(/[<>'"&]/g, '');
+  
+  if (!ALLOWED_TAGS.has(sanitized)) {
+    console.warn(`Unknown tag: ${sanitized}. Allowed tags: ${Array.from(ALLOWED_TAGS).join(', ')}`);
+    return 'UnknownTag'; // Safe fallback
+  }
+  
+  return sanitized;
+}
+
+// Validate and sanitize attribute name
+function validateAttributeName(key: string): string {
+  if (!key || typeof key !== 'string') {
+    throw new Error('Invalid attribute name: must be a non-empty string');
+  }
+  
+  // Remove any potentially dangerous characters
+  const sanitized = key.replace(/[<>'"&]/g, '');
+  
+  if (!ALLOWED_ATTRIBUTES.has(sanitized)) {
+    console.warn(`Unknown attribute: ${sanitized}. Allowed attributes: ${Array.from(ALLOWED_ATTRIBUTES).join(', ')}`);
+    return 'unknown-attr'; // Safe fallback
+  }
+  
+  return sanitized;
+}
+
 // Helper function to convert JSX to TXML string
 export function jsxToTXML(element: TXMLElement): string {
   if (element == null) {
@@ -168,21 +225,42 @@ export function jsxToTXML(element: TXMLElement): string {
   }
 
   if (typeof element === 'string' || typeof element === 'number' || typeof element === 'boolean') {
-    return element;
+    return String(element);
+  }
+
+  // Runtime type validation for TXMLElement
+  if (typeof element !== 'object' || Array.isArray(element)) {
+    throw new Error(`jsxToTXML: element must be a TXMLElement object, got ${typeof element}`);
+  }
+
+  if (!element.tag || typeof element.tag !== 'string') {
+    throw new Error(`jsxToTXML: element.tag must be a string, got ${typeof element.tag}`);
+  }
+
+  if (!element.attributes || typeof element.attributes !== 'object' || Array.isArray(element.attributes)) {
+    throw new Error(`jsxToTXML: element.attributes must be an object, got ${typeof element.attributes}`);
+  }
+
+  if (!element.children || !Array.isArray(element.children)) {
+    throw new Error(`jsxToTXML: element.children must be an array, got ${typeof element.children}`);
   }
 
   const { tag, attributes, children } = element;
   
-  // Build attributes string with proper escaping
+  // Validate and sanitize tag name
+  const safeTag = validateTagName(tag);
+  
+  // Build attributes string with proper escaping and validation
   const attrsStr = Object.entries(attributes || {})
     .map(([key, value]) => {
+      const safeKey = validateAttributeName(key);
       const escapedValue = String(value)
         .replace(/&/g, '&amp;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
-      return `${key}="${escapedValue}"`;
+      return `${safeKey}="${escapedValue}"`;
     })
     .join(' ');
 
@@ -192,10 +270,10 @@ export function jsxToTXML(element: TXMLElement): string {
     .join('');
 
   if (!children || children.length === 0) {
-    return `<${tag}${attrsStr ? ' ' + attrsStr : ''} />`;
+    return `<${safeTag}${attrsStr ? ' ' + attrsStr : ''} />`;
   }
 
-  return `<${tag}${attrsStr ? ' ' + attrsStr : ''}>${childrenStr}</${tag}>`;
+  return `<${safeTag}${attrsStr ? ' ' + attrsStr : ''}>${childrenStr}</${safeTag}>`;
 }
 
 // Example usage:
@@ -230,6 +308,11 @@ let stateId = 0;
 const stateMap = new Map<string, any>();
 
 export function useState<T>(initialValue: T): [T, (value: T | ((prev: T) => T)) => void] {
+  // Runtime type validation for initialValue
+  if (initialValue === null || initialValue === undefined) {
+    throw new Error(`useState: initialValue cannot be null or undefined`);
+  }
+  
   const id = `state_${stateId++}`;
   
   if (!stateMap.has(id)) {
@@ -237,6 +320,11 @@ export function useState<T>(initialValue: T): [T, (value: T | ((prev: T) => T)) 
   }
   
   const setValue = (value: T | ((prev: T) => T)) => {
+    // Runtime type validation for setValue
+    if (value === null || value === undefined) {
+      throw new Error(`useState: setValue cannot accept null or undefined`);
+    }
+    
     const currentValue = stateMap.get(id);
     const newValue = typeof value === 'function' ? (value as Function)(currentValue) : value;
     stateMap.set(id, newValue);

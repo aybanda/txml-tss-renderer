@@ -80,17 +80,19 @@ describe('TXML Parser', () => {
     consoleSpy.mockRestore();
   });
 
-  it('should throw error for non-App root', () => {
+  it('should handle non-App root gracefully', () => {
     const xml = `
       <Window>
         <Text>Content</Text>
       </Window>
     `;
     
-    expect(() => parseTXML(xml)).toThrow(TXMLParseError);
+    const result = parseTXML(xml);
+    expect(result).not.toBeNull();
+    expect(result?.tag).toBe('App'); // Should return fallback App element
   });
 
-  it('should throw error for malformed XML', () => {
+  it('should handle malformed XML gracefully', () => {
     const xml = `
       <App>
         <Window>
@@ -99,7 +101,9 @@ describe('TXML Parser', () => {
       </App>
     `;
     
-    expect(() => parseTXML(xml)).toThrow(TXMLParseError);
+    const result = parseTXML(xml);
+    expect(result).not.toBeNull();
+    expect(result?.tag).toBe('App'); // Should return fallback App element
   });
 
   it('should handle complex nested structure', () => {

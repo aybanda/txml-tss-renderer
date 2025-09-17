@@ -1,7 +1,7 @@
 // JSX runtime tests
 
 import { describe, it, expect } from 'vitest';
-import { jsx, jsxs, jsxToTXML } from '../jsx-runtime.js';
+import { jsx, jsxs, jsxToTXML, useState } from '../jsx-runtime.js';
 
 describe('JSX Runtime', () => {
   it('should create simple JSX element', () => {
@@ -122,7 +122,133 @@ describe('JSX Runtime', () => {
     
     const txml = jsxToTXML(element);
     
-    expect(txml).toContain('content="Hello &quot;World&quot; &amp; &lt;Special&gt;"');
-    expect(txml).toContain('className="test-class"');
+    // Security: Unknown attributes are sanitized to 'unknown-attr'
+    expect(txml).toContain('unknown-attr="Hello &quot;World&quot; &amp; &lt;Special&gt;"');
+    expect(txml).toContain('unknown-attr="test-class"');
   });
+
+  // Security tests
+  describe('Security', () => {
+    it('should prevent XSS in tag names', () => {
+      const maliciousElement = {
+        tag: '<script>alert("xss")</script>',
+        attributes: {},
+        children: []
+      };
+      
+      const txml = jsxToTXML(maliciousElement as any);
+      
+      expect(txml).not.toContain('<script>');
+      expect(txml).not.toContain('alert');
+      expect(txml).toContain('<UnknownTag');
+    });
+
+    it('should prevent XSS in attribute names', () => {
+      const maliciousElement = {
+        tag: 'Button',
+        attributes: {
+          '<script>alert("xss")</script>': 'value'
+        },
+        children: []
+      };
+      
+      const txml = jsxToTXML(maliciousElement as any);
+      
+      expect(txml).not.toContain('<script>');
+      expect(txml).not.toContain('alert');
+      expect(txml).toContain('unknown-attr');
+    });
+
+    it('should sanitize dangerous characters in tag names', () => {
+      const maliciousElement = {
+        tag: 'Button<>"\'&',
+        attributes: {},
+        children: []
+      };
+      
+      const txml = jsxToTXML(maliciousElement as any);
+      
+      // The tag gets sanitized to 'Button' (removing dangerous chars)
+      // and since 'Button' is in the whitelist, it's allowed
+      expect(txml).toContain('<Button');
+      expect(txml).not.toContain('<>');
+      expect(txml).not.toContain('"');
+      expect(txml).not.toContain("'");
+      expect(txml).not.toContain('&');
+    });
+
+    it('should validate tag names against whitelist', () => {
+      const maliciousElement = {
+        tag: 'MaliciousTag',
+        attributes: {},
+        children: []
+      };
+      
+      const txml = jsxToTXML(maliciousElement as any);
+      
+      expect(txml).toContain('<UnknownTag');
+    });
+
+    it('should validate attribute names against whitelist', () => {
+      const maliciousElement = {
+        tag: 'Button',
+        attributes: {
+          'malicious-attr': 'value'
+        },
+        children: []
+      };
+      
+      const txml = jsxToTXML(maliciousElement as any);
+      
+      expect(txml).toContain('unknown-attr');
+        });
+    });
+
+    // Runtime type validation tests
+    describe('Runtime Type Validation', () => {
+        it('should validate JSX type parameter', () => {
+            expect(() => jsx(123 as any, {})).toThrow('JSX type must be a string');
+            expect(() => jsx(null as any, {})).toThrow('JSX type must be a string');
+            expect(() => jsx({} as any, {})).toThrow('JSX type must be a string');
+        });
+
+        it('should validate jsxs type parameter', () => {
+            expect(() => jsxs(123 as any, {})).toThrow('JSX type must be a string');
+            expect(() => jsxs(null as any, {})).toThrow('JSX type must be a string');
+            expect(() => jsxs({} as any, {})).toThrow('JSX type must be a string');
+        });
+
+        it('should validate jsxToTXML element parameter', () => {
+            // jsxToTXML handles null/undefined gracefully by returning empty string
+            expect(jsxToTXML(null as any)).toBe('');
+            expect(jsxToTXML(undefined as any)).toBe('');
+            
+            // jsxToTXML handles primitive types by converting to string
+            expect(jsxToTXML(123 as any)).toBe('123');
+            expect(jsxToTXML('string' as any)).toBe('string');
+            expect(jsxToTXML(true as any)).toBe('true');
+            
+            // But should throw for invalid object types
+            expect(() => jsxToTXML({} as any)).toThrow('element.tag must be a string');
+        });
+
+        it('should validate jsxToTXML element structure', () => {
+            expect(() => jsxToTXML({} as any)).toThrow('element.tag must be a string');
+            expect(() => jsxToTXML({ tag: 123 } as any)).toThrow('element.tag must be a string');
+            expect(() => jsxToTXML({ tag: 'Button' } as any)).toThrow('element.attributes must be an object');
+            expect(() => jsxToTXML({ tag: 'Button', attributes: 'invalid' } as any)).toThrow('element.attributes must be an object');
+            expect(() => jsxToTXML({ tag: 'Button', attributes: {}, children: 'invalid' } as any)).toThrow('element.children must be an array');
+        });
+
+        it('should validate useState initialValue parameter', () => {
+            expect(() => useState(null)).toThrow('initialValue cannot be null or undefined');
+            expect(() => useState(undefined)).toThrow('initialValue cannot be null or undefined');
+        });
+
+        it('should validate useState setValue parameter', () => {
+            const [, setValue] = useState('initial');
+            expect(() => setValue(null as any)).toThrow('setValue cannot accept null or undefined');
+            expect(() => setValue(undefined as any)).toThrow('setValue cannot accept null or undefined');
+        });
+    });
 });

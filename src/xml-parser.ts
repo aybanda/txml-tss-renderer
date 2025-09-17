@@ -234,7 +234,37 @@ export class TXMLParser {
   }
 }
 
-export function parseTXML(xml: string): TXMLElement {
-  const parser = new TXMLParser(xml);
-  return parser.parse();
+export function parseTXML(xml: string): TXMLElement | null {
+  try {
+    if (!xml || typeof xml !== 'string') {
+      console.error('Invalid TXML input: must be a non-empty string');
+      return null;
+    }
+    
+    const parser = new TXMLParser(xml);
+    return parser.parse();
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('TXML parsing failed:', errorMessage);
+    console.error('Input TXML:', xml.substring(0, 200) + (xml.length > 200 ? '...' : ''));
+    
+    // Return a safe fallback element instead of crashing
+    return {
+      tag: 'App',
+      attributes: {},
+      children: [{
+        tag: 'Body',
+        attributes: {},
+        children: [{
+          tag: 'Window',
+          attributes: { title: 'Error' },
+          children: [{
+            tag: 'Text',
+            attributes: {},
+            children: [`TXML Parse Error: ${errorMessage}`]
+          }]
+        }]
+      }]
+    };
+  }
 }

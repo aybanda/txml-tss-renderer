@@ -80,6 +80,15 @@ export class TXMLTSSRenderer {
    * Set ImGui instances for dependency injection
    */
   setImGui(imgui: ImGuiInstance, imguiImplWeb: ImGuiImplWebInstance): void {
+    // Runtime type validation
+    if (typeof imgui !== 'object' || imgui === null) {
+      throw new Error(`setImGui: imgui must be an object, got ${typeof imgui}`);
+    }
+    
+    if (typeof imguiImplWeb !== 'object' || imguiImplWeb === null) {
+      throw new Error(`setImGui: imguiImplWeb must be an object, got ${typeof imguiImplWeb}`);
+    }
+    
     this.imgui = imgui;
     this.imguiImplWeb = imguiImplWeb;
     this.widgetRenderers.setImGui(imgui);
@@ -91,6 +100,15 @@ export class TXMLTSSRenderer {
   render(txml: string, tss: string = ''): void {
     try {
       this.logger?.startFrame();
+      
+      // Runtime type validation
+      if (typeof txml !== 'string') {
+        throw new Error(`render: txml must be a string, got ${typeof txml}`);
+      }
+      
+      if (typeof tss !== 'string') {
+        throw new Error(`render: tss must be a string, got ${typeof tss}`);
+      }
       
       if (!txml || !txml.trim()) {
         console.warn('Empty TXML provided');
@@ -107,14 +125,14 @@ export class TXMLTSSRenderer {
       // Parse TXML
       const xmlElement = parseTXML(txml);
       if (!xmlElement) {
-        console.error('Failed to parse TXML');
+        console.error('Failed to parse TXML - using fallback');
         return;
       }
       
       // Parse TSS
       const stylesheet = parseTSS(tss);
       if (!stylesheet) {
-        console.error('Failed to parse TSS');
+        console.error('Failed to parse TSS - using fallback');
         return;
       }
       
@@ -160,13 +178,22 @@ export class TXMLTSSRenderer {
     
     console.log(`Rendering element: ${element.tag} with ${element.children.length} children`);
     
-    // Compute styles for this element
-    const computedStyle = styleEngine.computeStyle(element, context.currentPath);
-    console.log(`Computed style for ${element.tag}:`, computedStyle);
-    
-    // Render the element with computed styles
-    this.widgetRenderers.render(element, context, computedStyle, styleEngine);
-    console.log(`Finished rendering element: ${element.tag}`);
+    try {
+      // Compute styles for this element
+      const computedStyle = styleEngine.computeStyle(element, context.currentPath);
+      console.log(`Computed style for ${element.tag}:`, computedStyle);
+      
+      // Render the element with computed styles
+      this.widgetRenderers.render(element, context, computedStyle, styleEngine);
+      console.log(`Finished rendering element: ${element.tag}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`Failed to render element: ${element.tag}`, error);
+      this.logger?.logImGui(`// Error: Failed to render ${element.tag} - ${errorMessage}`);
+      
+      // Don't re-throw - let the application continue
+      // This ensures one broken element doesn't crash the entire UI
+    }
   }
 
   /**
