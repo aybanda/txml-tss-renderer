@@ -31,7 +31,7 @@ export class TSSParser {
         this.parseAtRule();
       } else {
         // TSS rule
-        const rule = this.parseRule();
+        const rule = this.parseRule(variables);
         if (rule) {
           rules.push(rule);
         }
@@ -87,7 +87,7 @@ export class TSSParser {
     return { name, value };
   }
 
-  private parseRule(): TSSRule | null {
+  private parseRule(variables: Map<string, string>): TSSRule | null {
     const selector = this.parseSelector();
     if (!selector) return null;
 
@@ -95,7 +95,7 @@ export class TSSParser {
       throw new TSSParseError('Expected { after selector', this.line, this.column);
     }
 
-    const properties = this.parseProperties();
+    const properties = this.parseProperties(variables);
 
     if (!this.consume('}')) {
       throw new TSSParseError('Expected } after properties', this.line, this.column);
@@ -118,7 +118,7 @@ export class TSSParser {
     return this.tss.slice(start, this.pos).trim();
   }
 
-  private parseProperties(): Record<string, string> {
+  private parseProperties(variables: Map<string, string> = new Map()): Record<string, string> {
     const properties: Record<string, string> = {};
     
     while (this.pos < this.tss.length && this.tss[this.pos] !== '}') {
@@ -133,7 +133,10 @@ export class TSSParser {
       }
       
       this.skipWhitespace();
-      const value = this.parseValue();
+      let value = this.parseValue();
+      
+      // Substitute variables in the value
+      value = this.substituteVariables(value, variables);
       
       if (!SUPPORTED_PROPERTIES.includes(name as any)) {
         console.warn(`Unknown property: ${name}`, this.line, this.column);
@@ -287,6 +290,17 @@ export class TSSParser {
     }
   }
 
+  private substituteVariables(value: string, variables: Map<string, string>): string {
+    // Replace variable references with their values
+    let result = value;
+    for (const [varName, varValue] of variables) {
+      // Replace variable references (e.g., "red" -> "0xCC0000FF")
+      const regex = new RegExp(`\\b${varName}\\b`, 'g');
+      result = result.replace(regex, varValue);
+    }
+    return result;
+  }
+
   private consume(expected: string): boolean {
     if (this.tss.startsWith(expected, this.pos)) {
       this.pos += expected.length;
@@ -297,26 +311,9 @@ export class TSSParser {
   }
 }
 
-export function parseTSS(tss: string): TSSStylesheet | null {
-  try {
-    if (!tss || typeof tss !== 'string') {
-      console.error('Invalid TSS input: must be a non-empty string');
-      return null;
-    }
-    
-    const parser = new TSSParser(tss);
-    return parser.parse();
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('TSS parsing failed:', errorMessage);
-    console.error('Input TSS:', tss.substring(0, 200) + (tss.length > 200 ? '...' : ''));
-    
-    // Return a safe fallback stylesheet instead of crashing
-    return {
-      variables: new Map(),
-      rules: []
-    };
-  }
+export function parseTSS(tss: string): TSSStylesheet {
+  const parser = new TSSParser(tss);
+  return parser.parse();
 }
 
 

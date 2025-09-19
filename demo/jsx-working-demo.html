@@ -127,37 +127,47 @@
             
             <h3>TSS Styles:</h3>
             <textarea id="tssEditor">scope {
-  primaryColor: #4CAF50;
-  secondaryColor: #2196F3;
-  textColor: #000000;
-  accentColor: #FF9800;
-  buttonGreen: #32CD32;
-  whiteColor: #ffffff;
-  blackColor: #000000;
-  buttonTextColor: #ffffff;
-  greenButtonTextColor: #000000;
+  red: 0xCC0000FF;
+  green: 0x00CC00FF;
+  blue: 0x0000CCFF;
+  white: 0xFFFFFFFF;
+  black: 0x000000FF;
+  primary: 0x4CAF50FF;
+  secondary: 0x2196F3FF;
+  accent: 0xFF9800FF;
+  buttonGreen: 0x32CD32FF;
 }
 
 Window {
-  text-color: textColor;
+  text-color: white;
 }
 
 Button {
-  background-color: primaryColor;
-  text-color: buttonTextColor;
+  button-color: primary;
+  text-color: white;
 }
 
 #greenButton {
-  background-color: buttonGreen;
-  text-color: greenButtonTextColor;
+  button-color: buttonGreen;
+  text-color: black;
 }
 
 Text {
-  text-color: textColor;
+  text-color: white;
 }
 
 Checkbox {
-  text-color: accentColor;
+  text-color: accent;
+}
+
+InputText {
+  widget-background-color: 0x3D3D3DFF;
+  text-color: white;
+}
+
+SliderFloat {
+  widget-background-color: 0x3D3D3DFF;
+  text-color: white;
 }</textarea>
             
 
@@ -432,17 +442,25 @@ Checkbox {
                     }
                     
                     // Request WebGPU adapter and device
-                    const adapter = await navigator.gpu.requestAdapter();
+                    const adapter = await navigator.gpu.requestAdapter({
+                        powerPreference: 'high-performance'
+                    });
                     if (!adapter) {
                         throw new Error('WebGPU adapter not available');
                     }
                     
-                    device = await adapter.requestDevice();
+                    device = await adapter.requestDevice({
+                        requiredFeatures: [],
+                        requiredLimits: {}
+                    });
                     
                     // Configure WebGPU context
+                    const preferredFormat = navigator.gpu.getPreferredCanvasFormat();
                     context.configure({
                         device,
-                        format: navigator.gpu.getPreferredCanvasFormat(),
+                        format: preferredFormat,
+                        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+                        alphaMode: 'premultiplied'
                     });
                     
                     console.log('WebGPU context created and configured');

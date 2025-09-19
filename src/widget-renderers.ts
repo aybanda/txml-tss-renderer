@@ -165,8 +165,8 @@ export class WidgetRenderers {
     
     // Apply button color styling using ImGui color constants
     let colorPushed = false;
-    if (style['background-color'] && style['background-color'].type === 'color') {
-      const colorValue = style['background-color'].value;
+    if (style['button-color'] && style['button-color'].type === 'color') {
+      const colorValue = style['button-color'].value;
       
       // Convert color to RGBA values
       const r = ((colorValue >> 16) & 0xff) / 255;

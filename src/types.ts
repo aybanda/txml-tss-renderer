@@ -65,10 +65,22 @@ export const SUPPORTED_TAGS = [
 
 export type SupportedTag = typeof SUPPORTED_TAGS[number];
 
-// Supported TSS properties
+// Supported TSS properties (based on TSS specification)
 export const SUPPORTED_PROPERTIES = [
-  'color', 'text-color', 'background-color', 'width', 'height', 'padding', 'margin',
-  'font-size', 'border-radius', 'opacity'
+  'text-color', 'button-color', 'button-color-hover', 'button-color-active',
+  'widget-background-color', 'widget-background-color-hover', 'widget-background-color-active',
+  'frame-background-color', 'frame-background-color-hover', 'frame-background-color-active',
+  'window-background-color', 'popup-background-color', 'border-color',
+  'scrollbar-background-color', 'scrollbar-grab-color', 'scrollbar-grab-hover-color',
+  'header-background-color', 'header-hover-color', 'header-active-color',
+  'title-background-color', 'title-active-color', 'title-collapsed-color',
+  'menu-bar-background-color', 'tab-background-color', 'tab-hover-color', 'tab-active-color',
+  'docking-background-color', 'docking-preview-color', 'docking-empty-color',
+  'plot-background-color', 'plot-line-color', 'plot-histogram-color',
+  'table-background-color', 'table-border-color', 'table-header-background-color',
+  'table-row-background-color', 'table-row-alt-background-color',
+  'drag-drop-background-color', 'nav-highlight-color', 'nav-windowing-highlight-color',
+  'nav-windowing-darkening-color', 'modal-window-darkening-color'
 ] as const;
 
 export type SupportedProperty = typeof SUPPORTED_PROPERTIES[number];

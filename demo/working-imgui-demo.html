@@ -95,8 +95,6 @@
       <Button onClick="handleClick">Click Me!</Button>
       <SameLine />
       <Button onClick="testHandler">Test Handler</Button>
-      <SameLine />
-      <Button id="greenButton" onClick="greenClick">Green Button</Button>
       
       <InputText label="Name" hint="Enter your name" />
       <SliderFloat label="Volume" min="0" max="1" />
@@ -107,49 +105,43 @@
             
             <h3>TSS Styles:</h3>
             <textarea id="tssEditor">scope {
-  primaryColor: #4CAF50;
-  secondaryColor: #2196F3;
-  textColor: #000000;
-  accentColor: #FF9800;
-  buttonGreen: #32CD32;
-  whiteColor: #ffffff;
-  blackColor: #000000;
-  buttonTextColor: #ffffff;
-  greenButtonTextColor: #000000;
+  red: 0xCC0000FF;
+  green: 0x00CC00FF;
+  blue: 0x0000CCFF;
+  white: 0xFFFFFFFF;
+  black: 0x000000FF;
+  primary: 0x4CAF50FF;
+  secondary: 0x2196F3FF;
+  accent: 0xFF9800FF;
 }
 
 Window {
-  text-color: textColor;
+  text-color: white;
 }
 
 Button {
-  background-color: primaryColor;
-  text-color: buttonTextColor;
-}
-
-#greenButton {
-  background-color: buttonGreen;
-  text-color: greenButtonTextColor;
+  button-color: primary;
+  text-color: white;
 }
 
 Text {
-  text-color: textColor;
+  text-color: white;
 }
 
 InputText {
-  background-color: #3d3d3d;
-  text-color: textColor;
+  widget-background-color: 0x3D3D3DFF;
+  text-color: white;
 }
 
 Checkbox {
-  text-color: accentColor;
+  text-color: accent;
 }</textarea>
             
             <div>
                 <label for="backendSelect">Backend:</label>
                 <select id="backendSelect">
-                    <option value="webgl2" selected>WebGL2 (Recommended)</option>
-                    <option value="webgpu">WebGPU (Experimental)</option>
+                    <option value="webgl2" selected>WebGL2</option>
+                    <option value="webgpu">WebGPU</option>
                 </select>
                 <button id="renderBtn">Render to ImGui</button>
                 <button id="resetBtn">Reset</button>
@@ -198,9 +190,18 @@ Checkbox {
                     await new Promise(resolve => setTimeout(resolve, 500));
                 }
                 
-                // Note: Renderer will be created after ImGui is initialized
+                renderer = new TXMLTSSRenderer(logger);
                 
-                // Note: Event handlers will be registered after renderer creation
+                // Register event handlers
+                renderer.registerEventHandler('handleClick', () => {
+                    console.log('Button clicked via TXML/TSS renderer!');
+                    document.getElementById('status').textContent = 'TXML Button clicked!';
+                    document.getElementById('status').className = 'status success';
+                });
+                
+                renderer.registerEventHandler('testHandler', () => {
+                    console.log('Test handler called!');
+                });
                 
                 console.log('TXML/TSS renderer loaded successfully');
                 return true;
@@ -262,9 +263,6 @@ Checkbox {
                     });
                     
                     console.log('WebGPU context created and configured');
-                    
-                    // Wait for WebGPU device to be fully ready
-                    await new Promise(resolve => setTimeout(resolve, 100));
                 } else {
                     // WebGL2 backend
                     context = canvas.getContext('webgl2');
@@ -280,6 +278,7 @@ Checkbox {
                     await ImGuiImplWeb.Init({
                         canvas,
                         device,
+                        enableDemos: true,
                         backend: 'webgpu'
                     });
                 } else {
@@ -300,47 +299,21 @@ Checkbox {
                 // Load TXML/TSS renderer
                 await loadRenderer();
                 
-                // Create renderer after ImGui is initialized
-                console.log('Creating renderer after ImGui initialization...');
-                const { TXMLTSSRenderer, DefaultConsoleLogger } = await import('../dist/index.js');
-                const logger = new DefaultConsoleLogger();
-                renderer = new TXMLTSSRenderer(logger);
-                
                 // Set ImGui instances in renderer after proper initialization
                 console.log('Setting ImGui instances in renderer...');
-                console.log('ImGui available:', typeof ImGui);
-                console.log('ImGuiImplWeb available:', typeof ImGuiImplWeb);
                 renderer.setImGui(ImGui, ImGuiImplWeb);
                 console.log('ImGui instances set in renderer');
                 
-                // Register event handlers
-                renderer.registerEventHandler('handleClick', () => {
-                    console.log('Button clicked via TXML/TSS renderer!');
-                    document.getElementById('status').textContent = 'TXML Button clicked!';
-                    document.getElementById('status').className = 'status success';
-                });
-                
-                renderer.registerEventHandler('testHandler', () => {
-                    console.log('Test handler called!');
-                });
-                
-                renderer.registerEventHandler('greenClick', () => {
-                    console.log('Green button clicked! TSS styling working!');
-                    document.getElementById('status').textContent = 'Green button clicked! TSS styling working!';
-                    document.getElementById('status').className = 'status success';
-                });
-                
-                // Set up render loop using proper ImGui frame management
+                // Set up render loop using the exact working pattern
                 function frame() {
                     if (!isRendering) return;
                     
                     try {
-                        // Use proper ImGui frame management sequence
                         ImGuiImplWeb.BeginRender();
                         
                         // DEBUG: Check frame state
                         frameCount++;
-                        console.log(`Frame ${frameCount}: Starting render with proper frame management`);
+                        console.log(`Frame ${frameCount}: Starting render (no NewFrame needed)`);
                         
                         // Render TXML/TSS content using the library
                         try {
@@ -386,33 +359,28 @@ Checkbox {
                             context.clear(context.COLOR_BUFFER_BIT);
                         }
                         
-                        // Use proper ImGui render sequence
+                        // EndRender with proper parameters for WebGPU
                         if (backend === 'webgpu') {
-                            // For WebGPU, we need to use the proper ImGui WebGPU rendering
-                            try {
-                                // Render ImGui draw data
-                                ImGui.Render();
-                                
-                                // Use ImGuiImplWeb.EndRender with command encoder for WebGPU
-                                const commandEncoder = device.createCommandEncoder();
-                                ImGuiImplWeb.EndRender(commandEncoder);
-                                
-                                // Submit the command buffer
-                                const commandBuffer = commandEncoder.finish();
-                                device.queue.submit([commandBuffer]);
-                                
-                                console.log('WebGPU ImGui render completed');
-                            } catch (webgpuError) {
-                                console.warn('WebGPU rendering error:', webgpuError.message);
-                            }
+                            // For WebGPU, we need to create a render pass
+                            const commandEncoder = device.createCommandEncoder();
+                            const textureView = context.getCurrentTexture().createView();
+                            
+                            const renderPassDescriptor = {
+                                colorAttachments: [{
+                                    view: textureView,
+                                    clearValue: { r: 0.2, g: 0.4, b: 0.6, a: 1.0 },
+                                    loadOp: 'clear',
+                                    storeOp: 'store',
+                                }],
+                            };
+                            
+                            const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+                            ImGuiImplWeb.EndRender(passEncoder);
+                            passEncoder.end();
+                            
+                            device.queue.submit([commandEncoder.finish()]);
                         } else {
-                            // For WebGL2, use the standard EndRender
-                            try {
-                                ImGuiImplWeb.EndRender();
-                                console.log('ImGui EndRender completed');
-                            } catch (renderError) {
-                                console.warn('Render error (non-critical):', renderError.message);
-                            }
+                            ImGuiImplWeb.EndRender();
                         }
                         
                         console.log('ImGui rendered successfully');
@@ -475,15 +443,11 @@ Checkbox {
             ImGuiImplWeb = null;
             context = null;
             
-            // Clear canvas (only if we have a valid WebGL2 context). WebGPU is cleared in render pass.
+            // Clear canvas
             const canvas = document.getElementById('canvas');
             if (backend === 'webgl2') {
-                const gl = canvas.getContext('webgl2');
-                if (gl) {
-                    gl.viewport(0, 0, canvas.width, canvas.height);
-                    gl.clearColor(0, 0, 0, 0);
-                    gl.clear(gl.COLOR_BUFFER_BIT);
-                }
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
             }
             
             // Clear console

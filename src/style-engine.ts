@@ -103,6 +103,14 @@ export class StyleEngine {
       case 'color':
       case 'text-color':
       case 'background-color':
+      case 'button-color':
+      case 'button-color-hover':
+      case 'button-color-active':
+      case 'widget-background-color':
+      case 'widget-background-color-hover':
+      case 'widget-background-color-active':
+      case 'frame-background-color':
+      case 'window-background-color':
         return {
           type: 'color',
           value: this.parseColor(value)
