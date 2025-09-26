@@ -12,38 +12,38 @@ scope {
   primary: 0x4CAF50FF;
   secondary: 0x2196F3FF;
   accent: 0xFF9800FF;
-}
-
-Window {
-  text-color: white;
-}
-
-Button {
-  button-color: primary;
-  text-color: white;
-}
-
-#greenButton {
-  button-color: green;
-  text-color: black;
-}
-
-Text {
-  text-color: white;
-}
-
-Checkbox {
-  text-color: accent;
-}
-
-InputText {
-  widget-background-color: 0x3D3D3DFF;
-  text-color: white;
-}
-
-SliderFloat {
-  widget-background-color: 0x3D3D3DFF;
-  text-color: white;
+  
+  Window {
+    text-color: white;
+  }
+  
+  Button {
+    button-color: primary;
+    text-color: white;
+  }
+  
+  #greenButton {
+    button-color: green;
+    text-color: black;
+  }
+  
+  Text {
+    text-color: white;
+  }
+  
+  Checkbox {
+    text-color: accent;
+  }
+  
+  InputText {
+    widget-background-color: 0x3D3D3DFF;
+    text-color: white;
+  }
+  
+  SliderFloat {
+    widget-background-color: 0x3D3D3DFF;
+    text-color: white;
+  }
 }
 `;
 

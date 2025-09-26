@@ -24,8 +24,9 @@ export class TSSParser {
 
     while (this.pos < this.tss.length) {
       if (this.tss.startsWith('scope', this.pos)) {
-        // TSS scope block for variables
-        this.parseScopeBlock(variables);
+        // TSS scope block for variables and nested rules
+        const scopeRules = this.parseScopeBlock(variables);
+        rules.push(...scopeRules);
       } else if (this.tss[this.pos] === '@') {
         // At-rule (like @media, @import, etc.)
         this.parseAtRule();
@@ -42,7 +43,9 @@ export class TSSParser {
     return { variables, rules };
   }
 
-  private parseScopeBlock(variables: Map<string, string>): void {
+  private parseScopeBlock(variables: Map<string, string>): TSSRule[] {
+    const rules: TSSRule[] = [];
+    
     // Skip 'scope'
     this.pos += 5;
     this.column += 5;
@@ -58,9 +61,23 @@ export class TSSParser {
       
       if (this.tss[this.pos] === '}') break;
       
-      // Parse TSS variable declaration: name: value;
-      const variable = this.parseTSSVariable();
-      variables.set(variable.name, variable.value);
+      // Check if this is a variable declaration (name: value;) or a rule (selector { ... })
+      const startPos = this.pos;
+      this.parseIdentifier(); // Parse identifier to check what follows
+      
+      if (this.tss[this.pos] === ':') {
+        // This is a variable declaration: name: value;
+        this.pos = startPos; // Reset position
+        const variable = this.parseTSSVariable();
+        variables.set(variable.name, variable.value);
+      } else {
+        // This is a rule: selector { ... }
+        this.pos = startPos; // Reset position
+        const rule = this.parseRule(variables);
+        if (rule) {
+          rules.push(rule);
+        }
+      }
       
       this.skipWhitespace();
     }
@@ -68,6 +85,8 @@ export class TSSParser {
     if (!this.consume('}')) {
       throw new TSSParseError('Expected } after scope block', this.line, this.column);
     }
+    
+    return rules;
   }
 
   private parseTSSVariable(): TSSVariable {
