@@ -142,6 +142,16 @@ export class StyleEngine {
   }
 
   private parseColor(value: string): number {
+    // Parse 0x format colors (0xRRGGBBAA)
+    if (value.startsWith('0x')) {
+      const hex = value.slice(2);
+      if (hex.length === 8) {
+        return parseInt(hex, 16);
+      } else if (hex.length === 6) {
+        return parseInt(hex, 16) | 0xff000000; // Add alpha
+      }
+    }
+    
     // Parse hex colors (#RRGGBB or #RGB)
     if (value.startsWith('#')) {
       const hex = value.slice(1);

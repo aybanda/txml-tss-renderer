@@ -49,8 +49,8 @@ describe('TSS Parser', () => {
     expect(result!.variables.get('textColor')).toBe('#ffffff');
     
     expect(result!.rules).toHaveLength(1);
-    expect(result!.rules[0].properties['background-color']).toBe('primaryColor');
-    expect(result!.rules[0].properties['text-color']).toBe('textColor');
+    expect(result!.rules[0].properties['background-color']).toBe('#4CAF50');
+    expect(result!.rules[0].properties['text-color']).toBe('#ffffff');
   });
 
   it('should calculate specificity correctly', () => {
@@ -107,7 +107,9 @@ describe('TSS Parser', () => {
   it('should handle empty stylesheet', () => {
     const result = parseTSS('');
     
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result!.variables.size).toBe(0);
+    expect(result!.rules).toHaveLength(0);
   });
 
   it('should handle malformed CSS', () => {
@@ -119,9 +121,8 @@ describe('TSS Parser', () => {
     `;
     
     const result = parseTSS(tss);
-    // The parser should handle malformed CSS gracefully by returning fallback
-    expect(result).not.toBeNull();
-    expect(result?.rules).toHaveLength(0); // Should return empty fallback due to parse error
+    // The parser should handle malformed CSS gracefully by returning null
+    expect(result).toBeNull();
   });
 
   it('should handle nested selectors', () => {

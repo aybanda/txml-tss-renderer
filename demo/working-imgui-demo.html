@@ -94,7 +94,7 @@
       
       <Button onClick="handleClick">Click Me!</Button>
       <SameLine />
-      <Button onClick="testHandler">Test Handler</Button>
+      <Button id="greenButton" onClick="testHandler">Green Button</Button>
       
       <InputText label="Name" hint="Enter your name" />
       <SliderFloat label="Volume" min="0" max="1" />
@@ -124,8 +124,17 @@ Button {
   text-color: white;
 }
 
+#greenButton {
+  button-color: green;
+  text-color: black;
+}
+
 Text {
   text-color: white;
+}
+
+Checkbox {
+  text-color: accent;
 }
 
 InputText {
@@ -133,8 +142,9 @@ InputText {
   text-color: white;
 }
 
-Checkbox {
-  text-color: accent;
+SliderFloat {
+  widget-background-color: 0x3D3D3DFF;
+  text-color: white;
 }</textarea>
             
             <div>

@@ -1,6 +1,5 @@
 // JSX Demo with build-time compilation
-import { jsx, jsxs, Fragment } from '../src/jsx-runtime.js';
-import { TXMLTSSRenderer, DefaultConsoleLogger } from '../dist/index.js';
+import { jsx, jsxs, Fragment, TXMLTSSRenderer, DefaultConsoleLogger } from '../dist/index.js';
 
 // TSS Styles (correct TSS syntax with scope, variables, and proper property names)
 const tssStyles = `
@@ -60,37 +59,30 @@ function jsxToTXML(element) {
     return element.map(jsxToTXML).join('');
   }
   
-  if (element.type === 'Fragment') {
-    return jsxToTXML(element.props.children);
+  // Handle TXMLElement objects (from jsx function)
+  if (element.tag) {
+    const { tag, attributes, children } = element;
+    
+    let attributesStr = '';
+    if (attributes && Object.keys(attributes).length > 0) {
+      const attrPairs = Object.entries(attributes)
+        .filter(([key, value]) => value !== undefined)
+        .map(([key, value]) => `${key}="${value}"`);
+      attributesStr = ' ' + attrPairs.join(' ');
+    }
+    
+    const childrenStr = children ? jsxToTXML(children) : '';
+    
+    if (childrenStr) {
+      return `<${tag}${attributesStr}>${childrenStr}</${tag}>`;
+    } else {
+      return `<${tag}${attributesStr} />`;
+    }
   }
   
-  const { type, props } = element;
-  const tagName = typeof type === 'string' ? type : 'Unknown';
-  
-  let attributes = '';
-  if (props) {
-    const attrPairs = Object.entries(props)
-      .filter(([key, value]) => key !== 'children' && value !== undefined)
-      .map(([key, value]) => {
-        if (key === 'onClick' && typeof value === 'function') {
-          // Register the function and return its ID
-          const handlerId = `handler_${Math.random().toString(36).substr(2, 9)}`;
-          window.jsxEventHandlerRegistry = window.jsxEventHandlerRegistry || {};
-          window.jsxEventHandlerRegistry[handlerId] = value;
-          return `onClick="${handlerId}"`;
-        }
-        return `${key}="${value}"`;
-      });
-    attributes = attrPairs.length > 0 ? ' ' + attrPairs.join(' ') : '';
-  }
-  
-  const children = props?.children ? jsxToTXML(props.children) : '';
-  
-  if (children) {
-    return `<${tagName}${attributes}>${children}</${tagName}>`;
-  } else {
-    return `<${tagName}${attributes} />`;
-  }
+  // Fallback for unknown element types
+  console.warn('Unknown element type:', element);
+  return '';
 }
 
 // Create the JSX component directly here instead of importing
@@ -157,6 +149,12 @@ async function initJSXDemo() {
     console.log('Creating JSX element...');
     const jsxElement = App();
     console.log('JSX element created:', jsxElement);
+    console.log('JSX element type:', typeof jsxElement);
+    console.log('JSX element keys:', Object.keys(jsxElement));
+    console.log('JSX element.type:', jsxElement.type);
+    console.log('JSX element.props:', jsxElement.props);
+    console.log('jsx function:', jsx);
+    console.log('jsx function type:', typeof jsx);
     
     console.log('Converting JSX to TXML...');
     const txml = jsxToTXML(jsxElement);

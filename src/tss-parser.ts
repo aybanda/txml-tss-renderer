@@ -311,9 +311,14 @@ export class TSSParser {
   }
 }
 
-export function parseTSS(tss: string): TSSStylesheet {
-  const parser = new TSSParser(tss);
-  return parser.parse();
+export function parseTSS(tss: string): TSSStylesheet | null {
+  try {
+    const parser = new TSSParser(tss);
+    return parser.parse();
+  } catch (error) {
+    console.error('TSS parsing failed:', error);
+    return null;
+  }
 }
 
 

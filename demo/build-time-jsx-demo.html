@@ -102,6 +102,7 @@
         let backend = 'webgl2';
         let buildTimeTXML = null;
         let buildTimeTSS = null;
+        let buildTimeRenderer = null;
         
         // Console output
         const consoleOutput = document.getElementById('consoleOutput');
@@ -224,7 +225,22 @@
                     buildTimeTSS = tssStyles;
                     console.log('Build-time JSX TXML:', txml);
                     console.log('Build-time JSX TSS:', tssStyles);
-                    console.log('Build-time content loaded successfully!');
+                    
+                    // Create renderer for build-time JSX (but don't set ImGui yet)
+                    const { TXMLTSSRenderer, DefaultConsoleLogger } = await import('../dist/index.js');
+                    const logger = new DefaultConsoleLogger();
+                    buildTimeRenderer = new TXMLTSSRenderer(logger);
+                    
+                    // Register event handlers
+                    buildTimeRenderer.registerEventHandler('incrementCount', () => {
+                        console.log('Count incremented via build-time JSX!');
+                    });
+                    
+                    buildTimeRenderer.registerEventHandler('greenClick', () => {
+                        console.log('Green button clicked! Build-time JSX working!');
+                    });
+                    
+                    console.log('Build-time content and renderer loaded successfully!');
                 } else {
                     console.error('Failed to load build-time JSX demo');
                 }
@@ -241,25 +257,12 @@
                         console.log(`Frame ${frameCount}: Starting render (no NewFrame needed)`);
                         
                         // Render our build-time JSX content instead of default demo
-                        if (buildTimeTXML && buildTimeTSS) {
+                        if (buildTimeTXML && buildTimeTSS && buildTimeRenderer) {
                             try {
                                 console.log('Rendering build-time JSX content...');
-                                // Import and use our renderer
-                                const { TXMLTSSRenderer, DefaultConsoleLogger } = await import('../dist/index.js');
-                                const logger = new DefaultConsoleLogger();
-                                const renderer = new TXMLTSSRenderer(logger);
-                                
-                                // Register event handlers
-                                renderer.registerEventHandler('incrementCount', () => {
-                                    console.log('Count incremented via build-time JSX!');
-                                });
-                                
-                                renderer.registerEventHandler('greenClick', () => {
-                                    console.log('Green button clicked! Build-time JSX working!');
-                                });
-                                
-                                // Render the TXML with TSS
-                                renderer.render(buildTimeTXML, buildTimeTSS);
+                                // Set ImGui and ImGuiImplWeb on the renderer before rendering
+                                buildTimeRenderer.setImGui(ImGui, ImGuiImplWeb);
+                                buildTimeRenderer.render(buildTimeTXML, buildTimeTSS);
                                 console.log('Build-time JSX rendered successfully');
                                 
                             } catch (error) {
