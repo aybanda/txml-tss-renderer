@@ -156,41 +156,64 @@ export class WidgetRenderers {
     if (!this.imgui) return;
     const text = this.getTextContent(element);
     const style = computedStyle || this.getComputedStyle(element, context);
-    
+
     // Apply button styling
     if (style.width && style.width.type === 'number') {
       this.logger?.logImGui(`ImGui.SetNextItemWidth(${style.width.value});`);
       this.imgui.SetNextItemWidth(style.width.value);
     }
-    
-    // Apply button color styling using ImGui color constants
-    let colorPushed = false;
+
+    // Apply button color styling using Michael's working RGBA approach
     if (style['button-color'] && style['button-color'].type === 'color') {
       const colorValue = style['button-color'].value;
       
-      // Convert color to RGBA values
-      const r = ((colorValue >> 16) & 0xff) / 255;
-      const g = ((colorValue >> 8) & 0xff) / 255;
-      const b = (colorValue & 0xff) / 255;
-      const a = ((colorValue >> 24) & 0xff) / 255;
+      // Convert RRGGBBAA to RGBA values
+      const r = (colorValue >> 24) & 0xff;
+      const g = (colorValue >> 16) & 0xff;
+      const b = (colorValue >> 8) & 0xff;
+      const a = colorValue & 0xff;
+
+      // Michael's RGBA helper function (proven to work)
+      const RGBA = (r: number, g: number, b: number, a: number = 255) => {
+        return ((r & 255) | ((g & 255) << 8) | ((b & 255) << 16) | ((a & 255) << 24)) >>> 0;
+      };
       
-      // Use ImGui color constants if available
-      if (this.imgui.PushStyleColor && this.imgui.Col?.Button !== undefined) {
-        this.logger?.logImGui(`ImGui.PushStyleColor(ImGui.Col.Button, ${r}, ${g}, ${b}, ${a});`);
-        this.imgui.PushStyleColor(this.imgui.Col.Button, r, g, b, a);
-        colorPushed = true;
+      try {
+        // Main button color
+        const mainColor = RGBA(r, g, b, a);
+        (this.imgui as any).PushStyleColor(this.imgui.Col!.Button, mainColor);
+        
+        // Hover state (lighter)
+        const hoverR = Math.min(255, r + 40);
+        const hoverG = Math.min(255, g + 40);
+        const hoverB = Math.min(255, b + 40);
+        const hoverColor = RGBA(hoverR, hoverG, hoverB, a);
+        (this.imgui as any).PushStyleColor((this.imgui.Col as any)['ButtonHovered'], hoverColor);
+        
+        // Active state (darker)
+        const activeR = Math.max(0, r - 50);
+        const activeG = Math.max(0, g - 50);
+        const activeB = Math.max(0, b - 50);
+        const activeColor = RGBA(activeR, activeG, activeB, a);
+        (this.imgui as any).PushStyleColor((this.imgui.Col as any)['ButtonActive'], activeColor);
+        
+        // Store the number of colors pushed for cleanup
+        (this as any).colorsPushed = 3;
+      } catch (error) {
+        console.error('Button color styling failed:', error);
+        (this as any).colorsPushed = 0;
       }
     }
-    
+
     this.logger?.logImGui(`ImGui.Button(${JSON.stringify(text)});`);
     const clicked = this.imgui.Button(text);
-    
-    // Pop the color if we pushed it
-    if (colorPushed && this.imgui.PopStyleColor) {
-      this.logger?.logImGui('ImGui.PopStyleColor(1);');
-      this.imgui.PopStyleColor(1);
+
+    // Pop the colors if we pushed them
+    if ((this as any).colorsPushed > 0) {
+      (this.imgui as any).PopStyleColor((this as any).colorsPushed);
+      (this as any).colorsPushed = 0;
     }
-    
+
     if (clicked && element.attributes.onClick) {
       this.handleEvent(element.attributes.onClick, context);
     }

@@ -360,8 +360,7 @@
                             ImGui.End();
                         }
                         
-                        // Show the ImGui demo window
-                        ImGui.ShowDemoWindow();
+                        // Don't show demo window - we want our TXML/TSS content
                         
                         // Clear the canvas if we are webgl; webgpu handles this for us
                         if (backend === 'webgl2') {

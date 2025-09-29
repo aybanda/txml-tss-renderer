@@ -175,8 +175,8 @@
             <div>
                 <label for="backendSelect">Backend:</label>
                 <select id="backendSelect">
-                    <option value="webgl2" selected>WebGL2 (Recommended)</option>
-                    <option value="webgpu">WebGPU (Experimental)</option>
+                    <option value="webgl2" selected>WebGL2</option>
+                    <option value="webgpu">WebGPU</option>
                 </select>
                 <button id="renderBtn">Render JSX to ImGui</button>
                 <button id="resetBtn">Reset</button>
@@ -482,6 +482,7 @@
                     await ImGuiImplWeb.Init({
                         canvas,
                         device,
+                        enableDemos: true,
                         backend: 'webgpu'
                     });
                 } else {
@@ -575,33 +576,28 @@
                             context.clear(context.COLOR_BUFFER_BIT);
                         }
                         
-                        // Use proper ImGui render sequence
+                        // EndRender with proper parameters for WebGPU
                         if (backend === 'webgpu') {
-                            // For WebGPU, we need to use the proper ImGui WebGPU rendering
-                            try {
-                                // Render ImGui draw data
-                                ImGui.Render();
-                                
-                                // Use ImGuiImplWeb.EndRender with command encoder for WebGPU
-                                const commandEncoder = device.createCommandEncoder();
-                                ImGuiImplWeb.EndRender(commandEncoder);
-                                
-                                // Submit the command buffer
-                                const commandBuffer = commandEncoder.finish();
-                                device.queue.submit([commandBuffer]);
-                                
-                                console.log('WebGPU ImGui render completed');
-                            } catch (webgpuError) {
-                                console.warn('WebGPU rendering error:', webgpuError.message);
-                            }
+                            // For WebGPU, we need to create a render pass
+                            const commandEncoder = device.createCommandEncoder();
+                            const textureView = context.getCurrentTexture().createView();
+                            
+                            const renderPassDescriptor = {
+                                colorAttachments: [{
+                                    view: textureView,
+                                    clearValue: { r: 0.1, g: 0.3, b: 0.1, a: 1.0 },
+                                    loadOp: 'clear',
+                                    storeOp: 'store',
+                                }],
+                            };
+                            
+                            const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+                            ImGuiImplWeb.EndRender(passEncoder);
+                            passEncoder.end();
+                            
+                            device.queue.submit([commandEncoder.finish()]);
                         } else {
-                            // For WebGL2, use the standard EndRender
-                            try {
-                                ImGuiImplWeb.EndRender();
-                                console.log('ImGui EndRender completed');
-                            } catch (renderError) {
-                                console.warn('Render error (non-critical):', renderError.message);
-                            }
+                            ImGuiImplWeb.EndRender();
                         }
                         
                         console.log('JSX ImGui rendered successfully');
