@@ -119,12 +119,37 @@ export class WidgetRenderers {
   private renderWindow(element: TXMLElement, context: RenderContext, _computedStyle?: ComputedStyle, styleEngine?: any): void {
     if (!this.imgui) return;
     const title = element.attributes.title || 'Window';
-    const style = this.getComputedStyle(element, context);
+    const style = this.getComputedStyle(element, context, styleEngine);
     
     // Apply window styling if needed
     if (style.width && style.width.type === 'number') {
       this.logger?.logImGui(`ImGui.SetNextWindowSize([${style.width.value}, ${style.height?.value || 200}], ImGui.Cond.Once);`);
       this.imgui.SetNextWindowSize([style.width.value, style.height?.value || 200], 1); // 1 = ImGui.Cond.Once
+    }
+
+    // Apply window text color styling
+    if (style['text-color'] && style['text-color'].type === 'color') {
+      const colorValue = style['text-color'].value;
+      
+      // Convert RRGGBBAA to RGBA values
+      const r = (colorValue >> 24) & 0xff;
+      const g = (colorValue >> 16) & 0xff;
+      const b = (colorValue >> 8) & 0xff;
+      const a = colorValue & 0xff;
+
+      // Michael's RGBA helper function for text color
+      const RGBA = (r: number, g: number, b: number, a: number = 255) => {
+        return ((r & 255) | ((g & 255) << 8) | ((b & 255) << 16) | ((a & 255) << 24)) >>> 0;
+      };
+      
+      try {
+        const textColor = RGBA(r, g, b, a);
+        (this.imgui as any).PushStyleColor((this.imgui.Col as any)['Text'], textColor);
+        (this as any).windowColorsPushed = 1;
+      } catch (error) {
+        console.error('Window text color styling failed:', error);
+        (this as any).windowColorsPushed = 0;
+      }
     }
     
     this.logger?.logImGui(`ImGui.Begin(${JSON.stringify(title)});`);
@@ -137,25 +162,63 @@ export class WidgetRenderers {
       }
     }
     
+    // Pop the text color if we pushed it
+    if ((this as any).windowColorsPushed > 0) {
+      (this.imgui as any).PopStyleColor((this as any).windowColorsPushed);
+      (this as any).windowColorsPushed = 0;
+    }
+    
     // Always call End() to match Begin(), even if there was an error
     this.logger?.logImGui('ImGui.End();');
     this.imgui.End();
   }
 
-  private renderText(element: TXMLElement, _context: RenderContext, _computedStyle?: ComputedStyle, _styleEngine?: any): void {
+  private renderText(element: TXMLElement, context: RenderContext, computedStyle?: ComputedStyle, styleEngine?: any): void {
     if (!this.imgui) return;
     const text = this.getTextContent(element);
+    const style = computedStyle || this.getComputedStyle(element, context, styleEngine);
     
-    // For now, skip TextColored to avoid the $$ property error
-    // TODO: Fix TextColored color parameter format for jsimgui
-    this.logger?.logImGui(`ImGui.Text(${JSON.stringify(text)});`);
-    this.imgui.Text(text);
+    // Debug logging
+    console.log('renderText:', { 
+      text, 
+      style, 
+      hasTextColor: !!style['text-color'],
+      textColorValue: style['text-color']?.value,
+      textColorType: style['text-color']?.type
+    });
+    
+    // Apply text color styling using TextColored (proven to work)
+    if (style['text-color'] && style['text-color'].type === 'color') {
+      const colorValue = style['text-color'].value;
+      console.log('Applying text color:', { colorValue });
+      
+      // Convert RRGGBBAA to RGBA values
+      const r = (colorValue >> 24) & 0xff;
+      const g = (colorValue >> 16) & 0xff;
+      const b = (colorValue >> 8) & 0xff;
+      const a = colorValue & 0xff;
+      
+      // Convert to 0.0-1.0 range for ImGui.TextColored
+      const rNorm = r / 255.0;
+      const gNorm = g / 255.0;
+      const bNorm = b / 255.0;
+      const aNorm = a / 255.0;
+      
+      console.log('Text color converted:', { r, g, b, a, rNorm, gNorm, bNorm, aNorm });
+      
+      this.logger?.logImGui(`ImGui.TextColored([${rNorm}, ${gNorm}, ${bNorm}, ${aNorm}], ${JSON.stringify(text)});`);
+      this.imgui.TextColored([rNorm, gNorm, bNorm, aNorm], text);
+    } else {
+      console.log('No text color found, using default');
+      this.logger?.logImGui(`ImGui.Text(${JSON.stringify(text)});`);
+      this.imgui.Text(text);
+    }
   }
 
-  private renderButton(element: TXMLElement, context: RenderContext, computedStyle?: ComputedStyle, _styleEngine?: any): void {
+  private renderButton(element: TXMLElement, context: RenderContext, computedStyle?: ComputedStyle, styleEngine?: any): void {
     if (!this.imgui) return;
     const text = this.getTextContent(element);
-    const style = computedStyle || this.getComputedStyle(element, context);
+    const style = computedStyle || this.getComputedStyle(element, context, styleEngine);
 
     // Apply button styling
     if (style.width && style.width.type === 'number') {
@@ -205,6 +268,33 @@ export class WidgetRenderers {
       }
     }
 
+    // Apply button text color styling
+    if (style['text-color'] && style['text-color'].type === 'color') {
+      const colorValue = style['text-color'].value;
+      
+      // Convert RRGGBBAA to RGBA values
+      const r = (colorValue >> 24) & 0xff;
+      const g = (colorValue >> 16) & 0xff;
+      const b = (colorValue >> 8) & 0xff;
+      const a = colorValue & 0xff;
+
+      // Michael's RGBA helper function for text color
+      const RGBA = (r: number, g: number, b: number, a: number = 255) => {
+        return ((r & 255) | ((g & 255) << 8) | ((b & 255) << 16) | ((a & 255) << 24)) >>> 0;
+      };
+      
+      try {
+        const textColor = RGBA(r, g, b, a);
+        // Use ImGui.Col.Text instead of ImGui.Col.ButtonText (ButtonText doesn't work in jsimgui)
+        (this.imgui as any).PushStyleColor(this.imgui.Col!.Text, textColor);
+        
+        // Update the count of colors pushed
+        (this as any).colorsPushed = ((this as any).colorsPushed || 0) + 1;
+      } catch (error) {
+        console.error('Button text color styling failed:', error);
+      }
+    }
+
     this.logger?.logImGui(`ImGui.Button(${JSON.stringify(text)});`);
     const clicked = this.imgui.Button(text);
 
@@ -219,19 +309,44 @@ export class WidgetRenderers {
     }
   }
 
-  private renderInputText(element: TXMLElement, context: RenderContext, _computedStyle?: ComputedStyle, _styleEngine?: any): void {
+  private renderInputText(element: TXMLElement, context: RenderContext, _computedStyle?: ComputedStyle, styleEngine?: any): void {
     if (!this.imgui) return;
     const id = this.generateId(element, context);
     const state = context.state.get(id) || { id, value: '', lastFrame: context.frameNumber };
     
     const label = element.attributes.label || '';
     const hint = element.attributes.hint || '';
-    const style = this.getComputedStyle(element, context);
+    const style = this.getComputedStyle(element, context, styleEngine);
     
     // Apply input styling
     if (style.width && style.width.type === 'number') {
       this.logger?.logImGui(`ImGui.SetNextItemWidth(${style.width.value});`);
       this.imgui.SetNextItemWidth(style.width.value);
+    }
+
+    // Apply widget background color styling
+    if (style['widget-background-color'] && style['widget-background-color'].type === 'color') {
+      const colorValue = style['widget-background-color'].value;
+      
+      // Convert RRGGBBAA to RGBA values
+      const r = (colorValue >> 24) & 0xff;
+      const g = (colorValue >> 16) & 0xff;
+      const b = (colorValue >> 8) & 0xff;
+      const a = colorValue & 0xff;
+
+      // Michael's RGBA helper function for background color
+      const RGBA = (r: number, g: number, b: number, a: number = 255) => {
+        return ((r & 255) | ((g & 255) << 8) | ((b & 255) << 16) | ((a & 255) << 24)) >>> 0;
+      };
+      
+      try {
+        const bgColor = RGBA(r, g, b, a);
+        (this.imgui as any).PushStyleColor((this.imgui.Col as any)['FrameBg'], bgColor);
+        (this as any).inputColorsPushed = 1;
+      } catch (error) {
+        console.error('InputText background color styling failed:', error);
+        (this as any).inputColorsPushed = 0;
+      }
     }
     
     let value = state.value || '';
@@ -244,9 +359,15 @@ export class WidgetRenderers {
       state.lastFrame = context.frameNumber;
       context.state.set(id, state);
     }
+
+    // Pop the background color if we pushed it
+    if ((this as any).inputColorsPushed > 0) {
+      (this.imgui as any).PopStyleColor((this as any).inputColorsPushed);
+      (this as any).inputColorsPushed = 0;
+    }
   }
 
-  private renderSliderFloat(element: TXMLElement, context: RenderContext, _computedStyle?: ComputedStyle, _styleEngine?: any): void {
+  private renderSliderFloat(element: TXMLElement, context: RenderContext, _computedStyle?: ComputedStyle, styleEngine?: any): void {
     if (!this.imgui) return;
     const id = this.generateId(element, context);
     const state = context.state.get(id) || { id, value: 0.5, lastFrame: context.frameNumber };
@@ -254,12 +375,37 @@ export class WidgetRenderers {
     const label = element.attributes.label || '';
     const min = parseFloat(element.attributes.min || '0');
     const max = parseFloat(element.attributes.max || '1');
-    const style = this.getComputedStyle(element, context);
+    const style = this.getComputedStyle(element, context, styleEngine);
     
     // Apply slider styling
     if (style.width && style.width.type === 'number') {
       this.logger?.logImGui(`ImGui.SetNextItemWidth(${style.width.value});`);
       this.imgui.SetNextItemWidth(style.width.value);
+    }
+
+    // Apply widget background color styling
+    if (style['widget-background-color'] && style['widget-background-color'].type === 'color') {
+      const colorValue = style['widget-background-color'].value;
+      
+      // Convert RRGGBBAA to RGBA values
+      const r = (colorValue >> 24) & 0xff;
+      const g = (colorValue >> 16) & 0xff;
+      const b = (colorValue >> 8) & 0xff;
+      const a = colorValue & 0xff;
+
+      // Michael's RGBA helper function for background color
+      const RGBA = (r: number, g: number, b: number, a: number = 255) => {
+        return ((r & 255) | ((g & 255) << 8) | ((b & 255) << 16) | ((a & 255) << 24)) >>> 0;
+      };
+      
+      try {
+        const bgColor = RGBA(r, g, b, a);
+        (this.imgui as any).PushStyleColor((this.imgui.Col as any)['FrameBg'], bgColor);
+        (this as any).sliderColorsPushed = 1;
+      } catch (error) {
+        console.error('SliderFloat background color styling failed:', error);
+        (this as any).sliderColorsPushed = 0;
+      }
     }
     
     const valueRef = [typeof state.value === 'number' ? state.value : 0.5];
@@ -271,17 +417,57 @@ export class WidgetRenderers {
       state.lastFrame = context.frameNumber;
       context.state.set(id, state);
     }
+
+    // Pop the background color if we pushed it
+    if ((this as any).sliderColorsPushed > 0) {
+      (this.imgui as any).PopStyleColor((this as any).sliderColorsPushed);
+      (this as any).sliderColorsPushed = 0;
+    }
   }
 
-  private renderCheckbox(element: TXMLElement, context: RenderContext, _computedStyle?: ComputedStyle, _styleEngine?: any): void {
+  private renderCheckbox(element: TXMLElement, context: RenderContext, computedStyle?: ComputedStyle, styleEngine?: any): void {
     if (!this.imgui) return;
     const id = this.generateId(element, context);
     const state = context.state.get(id) || { id, value: false, lastFrame: context.frameNumber };
     
     const label = element.attributes.label || '';
+    const style = computedStyle || this.getComputedStyle(element, context, styleEngine);
+    
+    // Apply checkbox text color styling
+    if (style['text-color'] && style['text-color'].type === 'color') {
+      const colorValue = style['text-color'].value;
+      
+      // Convert RRGGBBAA to RGBA values
+      const r = (colorValue >> 24) & 0xff;
+      const g = (colorValue >> 16) & 0xff;
+      const b = (colorValue >> 8) & 0xff;
+      const a = colorValue & 0xff;
+
+      // Michael's RGBA helper function for text color
+      const RGBA = (r: number, g: number, b: number, a: number = 255) => {
+        return ((r & 255) | ((g & 255) << 8) | ((b & 255) << 16) | ((a & 255) << 24)) >>> 0;
+      };
+      
+      try {
+        const textColor = RGBA(r, g, b, a);
+        // Use ImGui.Col.Text for checkbox text color (same as button text)
+        (this.imgui as any).PushStyleColor(this.imgui.Col!.Text, textColor);
+        (this as any).checkboxColorsPushed = 1;
+      } catch (error) {
+        console.error('Checkbox text color styling failed:', error);
+        (this as any).checkboxColorsPushed = 0;
+      }
+    }
+    
     const checkedRef = [Boolean(state.value)];
     this.logger?.logImGui(`ImGui.Checkbox(${JSON.stringify(label)}, ${checkedRef[0]});`);
     const changed = this.imgui.Checkbox(label, checkedRef);
+    
+    // Pop the text color if we pushed it
+    if ((this as any).checkboxColorsPushed > 0) {
+      (this.imgui as any).PopStyleColor((this as any).checkboxColorsPushed);
+      (this as any).checkboxColorsPushed = 0;
+    }
     
     if (changed) {
       state.value = checkedRef[0];
@@ -360,13 +546,14 @@ export class WidgetRenderers {
       .trim();
   }
 
-  private getComputedStyle(element: TXMLElement, context: RenderContext): ComputedStyle {
-    if (!this.styleEngine) {
+  private getComputedStyle(element: TXMLElement, context: RenderContext, styleEngine?: any): ComputedStyle {
+    const engine = styleEngine || this.styleEngine;
+    if (!engine) {
       return {};
     }
     
     try {
-      return this.styleEngine.computeStyle(element, context.currentPath) || {};
+      return engine.computeStyle(element, context.currentPath) || {};
     } catch (error) {
       console.error('Error computing style for element:', element.tag, error);
       return {};

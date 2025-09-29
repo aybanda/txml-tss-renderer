@@ -79,7 +79,7 @@ describe('TXML Parser', () => {
     
     parseTXML(xml);
     
-    expect(consoleSpy).toHaveBeenCalledWith('Unknown tag: UnknownTag', expect.any(Number), expect.any(Number));
+    expect(consoleSpy).toHaveBeenCalledWith('Unknown tag: UnknownTag');
     
     consoleSpy.mockRestore();
   });

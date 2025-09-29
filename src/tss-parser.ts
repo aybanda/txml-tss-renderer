@@ -1,6 +1,11 @@
 // TSS (Trema Style Sheets) parser
 
-import { TSSRule, TSSVariable, TSSStylesheet, SUPPORTED_PROPERTIES } from './types.js';
+import { TSSRule, TSSVariable, TSSStylesheet } from './types.js';
+import { 
+  validateTSSProperty, 
+  validateTSSColorValue, 
+  createSecurityError 
+} from './security.js';
 
 export class TSSParseError extends Error {
   constructor(message: string, public line?: number, public column?: number) {
@@ -145,23 +150,44 @@ export class TSSParser {
       
       if (this.tss[this.pos] === '}') break;
       
-      const name = this.parseIdentifier();
+      const rawName = this.parseIdentifier();
+      
+      // Validate and sanitize property name
+      const propertyValidation = validateTSSProperty(rawName);
+      if (!propertyValidation.isValid) {
+        throw createSecurityError(
+          `Security validation failed: ${propertyValidation.error}`, 
+          'INVALID_TSS_PROPERTY', 
+          { property: rawName, line: this.line, column: this.column }
+        );
+      }
+      
+      const name = propertyValidation.sanitized;
       
       if (!this.consume(':')) {
         throw new TSSParseError('Expected : after property name', this.line, this.column);
       }
       
       this.skipWhitespace();
-      let value = this.parseValue();
+      let rawValue = this.parseValue();
       
       // Substitute variables in the value
-      value = this.substituteVariables(value, variables);
+      rawValue = this.substituteVariables(rawValue, variables);
       
-      if (!SUPPORTED_PROPERTIES.includes(name as any)) {
-        console.warn(`Unknown property: ${name}`, this.line, this.column);
+      // Validate color values
+      if (name === 'text-color' || name === 'button-color' || name === 'widget-background-color') {
+        const colorValidation = validateTSSColorValue(rawValue);
+        if (!colorValidation.isValid) {
+          throw createSecurityError(
+            `Security validation failed: ${colorValidation.error}`, 
+            'INVALID_TSS_COLOR', 
+            { property: name, value: rawValue, line: this.line, column: this.column }
+          );
+        }
+        rawValue = colorValidation.sanitized;
       }
       
-      properties[name] = value;
+      properties[name] = rawValue;
       
       if (!this.consume(';')) {
         throw new TSSParseError('Expected ; after property value', this.line, this.column);

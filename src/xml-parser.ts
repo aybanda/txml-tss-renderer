@@ -1,6 +1,13 @@
 // Simple XML parser for TXML
 
-import { TXMLElement, SUPPORTED_TAGS } from './types.js';
+import { TXMLElement } from './types.js';
+import { 
+  validateTagName, 
+  validateAttributeName, 
+  validateAttributeValue, 
+  validateTextContent,
+  createSecurityError 
+} from './security.js';
 
 export class TXMLParseError extends Error {
   constructor(message: string, public line?: number, public column?: number) {
@@ -48,13 +55,45 @@ export class TXMLParser {
       throw new TXMLParseError('Expected <', this.line, this.column);
     }
 
-    const tag = this.parseTagName();
+    const rawTag = this.parseTagName();
     
-    if (!SUPPORTED_TAGS.includes(tag as any)) {
-      console.warn(`Unknown tag: ${tag}`, this.line, this.column);
+    // Validate and sanitize tag name
+    const tagValidation = validateTagName(rawTag);
+    if (!tagValidation.isValid) {
+      throw createSecurityError(
+        `Security validation failed: ${tagValidation.error}`, 
+        'INVALID_TAG', 
+        { tag: rawTag, line: this.line, column: this.column }
+      );
     }
+    
+    const tag = tagValidation.sanitized;
 
-    const attributes = this.parseAttributes();
+    const rawAttributes = this.parseAttributes();
+    const attributes: Record<string, string> = {};
+
+    // Validate and sanitize attributes
+    for (const [attrName, attrValue] of Object.entries(rawAttributes)) {
+      const attrValidation = validateAttributeName(tag, attrName);
+      if (!attrValidation.isValid) {
+        throw createSecurityError(
+          `Security validation failed: ${attrValidation.error}`, 
+          'INVALID_ATTRIBUTE', 
+          { tag, attribute: attrName, line: this.line, column: this.column }
+        );
+      }
+      
+      const valueValidation = validateAttributeValue(attrName, attrValue);
+      if (!valueValidation.isValid) {
+        throw createSecurityError(
+          `Security validation failed: ${valueValidation.error}`, 
+          'INVALID_ATTRIBUTE_VALUE', 
+          { tag, attribute: attrName, value: attrValue, line: this.line, column: this.column }
+        );
+      }
+      
+      attributes[attrValidation.sanitized] = valueValidation.sanitized;
+    }
 
     if (this.consume('/>')) {
       // Self-closing tag
@@ -186,7 +225,20 @@ export class TXMLParser {
       }
       this.pos++;
     }
-    return this.xml.slice(start, this.pos);
+    
+    const rawText = this.xml.slice(start, this.pos);
+    
+    // Validate and sanitize text content
+    const textValidation = validateTextContent(rawText);
+    if (!textValidation.isValid) {
+      throw createSecurityError(
+        `Security validation failed: ${textValidation.error}`, 
+        'INVALID_TEXT_CONTENT', 
+        { text: rawText, line: this.line, column: this.column }
+      );
+    }
+    
+    return textValidation.sanitized;
   }
 
   private skipWhitespace(): void {

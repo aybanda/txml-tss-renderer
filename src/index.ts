@@ -28,3 +28,4 @@ export type { Logger } from './types.js';
 
 export { TXMLParseError } from './xml-parser.js';
 export { TSSParseError } from './tss-parser.js';
+export { setTestMode, isTestMode } from './security.js';

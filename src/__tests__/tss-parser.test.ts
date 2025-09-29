@@ -99,7 +99,7 @@ describe('TSS Parser', () => {
     
     parseTSS(tss);
     
-    expect(consoleSpy).toHaveBeenCalledWith('Unknown property: unknown-property', expect.any(Number), expect.any(Number));
+    expect(consoleSpy).toHaveBeenCalledWith('Unknown property: unknown-property');
     
     consoleSpy.mockRestore();
   });

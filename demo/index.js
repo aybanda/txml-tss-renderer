@@ -1,4 +1,4 @@
-const P = [
+const F = [
   "App",
   "Head",
   "Body",
@@ -55,7 +55,7 @@ const P = [
   "nav-windowing-darkening-color",
   "modal-window-darkening-color"
 ];
-class d extends Error {
+class x extends Error {
   constructor(t, e, s) {
     super(t), this.line = e, this.column = s, this.name = "TXMLParseError";
   }
@@ -66,32 +66,32 @@ class L {
   }
   parse() {
     if (this.xml = this.xml.trim(), this.pos = 0, this.line = 1, this.column = 1, this.skipWhitespace(), this.pos >= this.xml.length || this.xml[this.pos] !== "<")
-      throw new d("Expected XML document to start with <", this.line, this.column);
+      throw new x("Expected XML document to start with <", this.line, this.column);
     const t = this.parseElement();
     if (t.tag !== "App")
-      throw new d("Root element must be <App>", this.line, this.column);
+      throw new x("Root element must be <App>", this.line, this.column);
     if (this.skipWhitespace(), this.pos < this.xml.length)
-      throw new d("Unexpected content after root element", this.line, this.column);
+      throw new x("Unexpected content after root element", this.line, this.column);
     return t;
   }
   parseElement() {
     if (!this.consume("<"))
-      throw new d("Expected <", this.line, this.column);
+      throw new x("Expected <", this.line, this.column);
     const t = this.parseTagName();
-    P.includes(t) || console.warn(`Unknown tag: ${t}`, this.line, this.column);
+    F.includes(t) || console.warn(`Unknown tag: ${t}`, this.line, this.column);
     const e = this.parseAttributes();
     if (this.consume("/>"))
       return { tag: t, attributes: e, children: [] };
     if (!this.consume(">"))
-      throw new d("Expected > or />", this.line, this.column);
+      throw new x("Expected > or />", this.line, this.column);
     const s = this.parseChildren(t);
     if (!this.consume("</"))
-      throw new d("Expected closing tag", this.line, this.column);
+      throw new x("Expected closing tag", this.line, this.column);
     const o = this.parseTagName();
     if (o !== t)
-      throw new d(`Mismatched closing tag: expected </${t}> but found </${o}>`, this.line, this.column);
+      throw new x(`Mismatched closing tag: expected </${t}> but found </${o}>`, this.line, this.column);
     if (!this.consume(">"))
-      throw new d("Expected > in closing tag", this.line, this.column);
+      throw new x("Expected > in closing tag", this.line, this.column);
     return { tag: t, attributes: e, children: s };
   }
   parseTagName() {
@@ -105,7 +105,7 @@ class L {
     for (this.skipWhitespace(); this.pos < this.xml.length && this.xml[this.pos] !== ">" && this.xml[this.pos] !== "/"; ) {
       const e = this.parseAttributeName();
       if (!this.consume("="))
-        throw new d("Expected = after attribute name", this.line, this.column);
+        throw new x("Expected = after attribute name", this.line, this.column);
       const s = this.parseAttributeValue();
       t[e] = s, this.skipWhitespace();
     }
@@ -120,13 +120,13 @@ class L {
   parseAttributeValue() {
     const t = this.consume('"') ? '"' : this.consume("'") ? "'" : null;
     if (!t)
-      throw new d("Expected quoted attribute value", this.line, this.column);
+      throw new x("Expected quoted attribute value", this.line, this.column);
     const e = this.pos;
     for (; this.pos < this.xml.length && this.xml[this.pos] !== t; )
       this.xml[this.pos] === `
 ` ? (this.line++, this.column = 1) : this.column++, this.pos++;
     if (!this.consume(t))
-      throw new d("Unclosed attribute value", this.line, this.column);
+      throw new x("Unclosed attribute value", this.line, this.column);
     return this.xml.slice(e, this.pos - 1);
   }
   parseChildren(t) {
@@ -194,7 +194,7 @@ function j(n) {
     };
   }
 }
-class m extends Error {
+class v extends Error {
   constructor(t, e, s) {
     super(t), this.line = e, this.column = s, this.name = "TSSParseError";
   }
@@ -222,7 +222,7 @@ class B {
   parseScopeBlock(t) {
     const e = [];
     if (this.pos += 5, this.column += 5, this.skipWhitespace(), !this.consume("{"))
-      throw new m("Expected { after scope", this.line, this.column);
+      throw new v("Expected { after scope", this.line, this.column);
     for (; this.pos < this.tss.length && this.tss[this.pos] !== "}" && (this.skipWhitespace(), this.tss[this.pos] !== "}"); ) {
       const s = this.pos;
       if (this.parseIdentifier(), this.tss[this.pos] === ":") {
@@ -237,27 +237,27 @@ class B {
       this.skipWhitespace();
     }
     if (!this.consume("}"))
-      throw new m("Expected } after scope block", this.line, this.column);
+      throw new v("Expected } after scope block", this.line, this.column);
     return e;
   }
   parseTSSVariable() {
     const t = this.parseIdentifier();
     if (!this.consume(":"))
-      throw new m("Expected : after variable name", this.line, this.column);
+      throw new v("Expected : after variable name", this.line, this.column);
     this.skipWhitespace();
     const e = this.parseValue();
     if (!this.consume(";"))
-      throw new m("Expected ; after variable value", this.line, this.column);
+      throw new v("Expected ; after variable value", this.line, this.column);
     return { name: t, value: e };
   }
   parseRule(t) {
     const e = this.parseSelector();
     if (!e) return null;
     if (!this.consume("{"))
-      throw new m("Expected { after selector", this.line, this.column);
+      throw new v("Expected { after selector", this.line, this.column);
     const s = this.parseProperties(t);
     if (!this.consume("}"))
-      throw new m("Expected } after properties", this.line, this.column);
+      throw new v("Expected } after properties", this.line, this.column);
     const o = this.calculateSpecificity(e);
     return { selector: e, properties: s, specificity: o };
   }
@@ -272,11 +272,11 @@ class B {
     for (; this.pos < this.tss.length && this.tss[this.pos] !== "}" && (this.skipWhitespace(), this.tss[this.pos] !== "}"); ) {
       const s = this.parseIdentifier();
       if (!this.consume(":"))
-        throw new m("Expected : after property name", this.line, this.column);
+        throw new v("Expected : after property name", this.line, this.column);
       this.skipWhitespace();
       let o = this.parseValue();
       if (o = this.substituteVariables(o, t), R.includes(s) || console.warn(`Unknown property: ${s}`, this.line, this.column), e[s] = o, !this.consume(";"))
-        throw new m("Expected ; after property value", this.line, this.column);
+        throw new v("Expected ; after property value", this.line, this.column);
       this.skipWhitespace();
     }
     return e;
@@ -353,7 +353,7 @@ function X(n) {
     return console.error("TSS parsing failed:", t), null;
   }
 }
-class k {
+class P {
   constructor() {
     this.state = /* @__PURE__ */ new Map(), this.frameNumber = 0;
   }
@@ -398,9 +398,9 @@ class k {
   }
 }
 function z() {
-  return new k();
+  return new P();
 }
-class $ {
+class W {
   constructor(t) {
     this.stylesheet = t;
   }
@@ -408,9 +408,9 @@ class $ {
     const s = {}, o = this.getApplicableRules(t, e);
     o.sort((r, i) => r.specificity - i.specificity);
     for (const r of o)
-      for (const [i, h] of Object.entries(r.properties)) {
-        const a = this.resolveValue(h);
-        s[i] = this.parseStyleValue(i, a);
+      for (const [i, l] of Object.entries(r.properties)) {
+        const h = this.resolveValue(l);
+        s[i] = this.parseStyleValue(i, h);
       }
     return s;
   }
@@ -421,7 +421,7 @@ class $ {
     return s;
   }
   selectorMatches(t, e, s) {
-    const o = s.split(/\s+/).filter((h) => h.trim());
+    const o = s.split(/\s+/).filter((l) => l.trim());
     if (o.length === 1)
       return this.simpleSelectorMatches(t, o[0]);
     let r = t, i = o.length - 1;
@@ -522,9 +522,9 @@ class $ {
   }
 }
 function U(n) {
-  return new $(n);
+  return new W(n);
 }
-class E {
+class C {
   constructor(t) {
     this.renderers = /* @__PURE__ */ new Map(), this.imgui = null, this.styleEngine = null, this.logger = t ?? null, this.setupRenderers();
   }
@@ -566,65 +566,102 @@ class E {
     this.renderChildren(t, e, o);
   }
   renderWindow(t, e, s, o) {
-    var a, l, c, u, g;
+    var h, a, c, u, f;
     if (!this.imgui) return;
     const r = t.attributes.title || "Window", i = this.getComputedStyle(t, e);
-    if (i.width && i.width.type === "number" && ((l = this.logger) == null || l.logImGui(`ImGui.SetNextWindowSize([${i.width.value}, ${((a = i.height) == null ? void 0 : a.value) || 200}], ImGui.Cond.Once);`), this.imgui.SetNextWindowSize([i.width.value, ((c = i.height) == null ? void 0 : c.value) || 200], 1)), (u = this.logger) == null || u.logImGui(`ImGui.Begin(${JSON.stringify(r)});`), this.imgui.Begin(r))
+    if (i.width && i.width.type === "number" && ((a = this.logger) == null || a.logImGui(`ImGui.SetNextWindowSize([${i.width.value}, ${((h = i.height) == null ? void 0 : h.value) || 200}], ImGui.Cond.Once);`), this.imgui.SetNextWindowSize([i.width.value, ((c = i.height) == null ? void 0 : c.value) || 200], 1)), (u = this.logger) == null || u.logImGui(`ImGui.Begin(${JSON.stringify(r)});`), this.imgui.Begin(r))
       try {
         this.renderChildren(t, e, o);
-      } catch (p) {
-        console.error("Error rendering window children:", p);
+      } catch (g) {
+        console.error("Error rendering window children:", g);
       }
-    (g = this.logger) == null || g.logImGui("ImGui.End();"), this.imgui.End();
+    (f = this.logger) == null || f.logImGui("ImGui.End();"), this.imgui.End();
   }
   renderText(t, e, s, o) {
-    var i;
-    if (!this.imgui) return;
-    const r = this.getTextContent(t);
-    (i = this.logger) == null || i.logImGui(`ImGui.Text(${JSON.stringify(r)});`), this.imgui.Text(r);
-  }
-  renderButton(t, e, s, o) {
-    var a, l;
+    var l, h, a, c;
     if (!this.imgui) return;
     const r = this.getTextContent(t), i = s || this.getComputedStyle(t, e);
-    if (i.width && i.width.type === "number" && ((a = this.logger) == null || a.logImGui(`ImGui.SetNextItemWidth(${i.width.value});`), this.imgui.SetNextItemWidth(i.width.value)), i["button-color"] && i["button-color"].type === "color") {
-      const c = i["button-color"].value, u = c >> 24 & 255, g = c >> 16 & 255, p = c >> 8 & 255, f = c & 255, y = (b, S, x, v = 255) => (b & 255 | (S & 255) << 8 | (x & 255) << 16 | (v & 255) << 24) >>> 0;
+    if (console.log("renderText:", {
+      text: r,
+      style: i,
+      hasTextColor: !!i["text-color"],
+      textColorValue: (l = i["text-color"]) == null ? void 0 : l.value,
+      textColorType: (h = i["text-color"]) == null ? void 0 : h.type
+    }), i["text-color"] && i["text-color"].type === "color") {
+      const u = i["text-color"].value;
+      console.log("Applying text color:", { colorValue: u });
+      const f = u >> 24 & 255, g = u >> 16 & 255, m = u >> 8 & 255, d = u & 255, p = f / 255, b = g / 255, w = m / 255, y = d / 255;
+      console.log("Text color converted:", { r: f, g, b: m, a: d, rNorm: p, gNorm: b, bNorm: w, aNorm: y }), (a = this.logger) == null || a.logImGui(`ImGui.TextColored([${p}, ${b}, ${w}, ${y}], ${JSON.stringify(r)});`), this.imgui.TextColored([p, b, w, y], r);
+    } else
+      console.log("No text color found, using default"), (c = this.logger) == null || c.logImGui(`ImGui.Text(${JSON.stringify(r)});`), this.imgui.Text(r);
+  }
+  renderButton(t, e, s, o) {
+    var h, a;
+    if (!this.imgui) return;
+    const r = this.getTextContent(t), i = s || this.getComputedStyle(t, e);
+    if (i.width && i.width.type === "number" && ((h = this.logger) == null || h.logImGui(`ImGui.SetNextItemWidth(${i.width.value});`), this.imgui.SetNextItemWidth(i.width.value)), i["button-color"] && i["button-color"].type === "color") {
+      const c = i["button-color"].value, u = c >> 24 & 255, f = c >> 16 & 255, g = c >> 8 & 255, m = c & 255, d = (p, b, w, y = 255) => (p & 255 | (b & 255) << 8 | (w & 255) << 16 | (y & 255) << 24) >>> 0;
       try {
-        const b = y(u, g, p, f);
-        this.imgui.PushStyleColor(this.imgui.Col.Button, b);
-        const S = Math.min(255, u + 40), x = Math.min(255, g + 40), v = Math.min(255, p + 40), _ = y(S, x, v, f);
-        this.imgui.PushStyleColor(this.imgui.Col.ButtonHovered, _);
-        const G = Math.max(0, u - 50), N = Math.max(0, g - 50), C = Math.max(0, p - 50), F = y(G, N, C, f);
-        this.imgui.PushStyleColor(this.imgui.Col.ButtonActive, F), this.colorsPushed = 3;
-      } catch (b) {
-        console.error("Button color styling failed:", b), this.colorsPushed = 0;
+        const p = d(u, f, g, m);
+        this.imgui.PushStyleColor(this.imgui.Col.Button, p);
+        const b = Math.min(255, u + 40), w = Math.min(255, f + 40), y = Math.min(255, g + 40), E = d(b, w, y, m);
+        this.imgui.PushStyleColor(this.imgui.Col.ButtonHovered, E);
+        const S = Math.max(0, u - 50), I = Math.max(0, f - 50), T = Math.max(0, g - 50), k = d(S, I, T, m);
+        this.imgui.PushStyleColor(this.imgui.Col.ButtonActive, k), this.colorsPushed = 3;
+      } catch (p) {
+        console.error("Button color styling failed:", p), this.colorsPushed = 0;
       }
     }
-    (l = this.logger) == null || l.logImGui(`ImGui.Button(${JSON.stringify(r)});`);
-    const h = this.imgui.Button(r);
-    this.colorsPushed > 0 && (this.imgui.PopStyleColor(this.colorsPushed), this.colorsPushed = 0), h && t.attributes.onClick && this.handleEvent(t.attributes.onClick, e);
+    if (i["text-color"] && i["text-color"].type === "color") {
+      const c = i["text-color"].value, u = c >> 24 & 255, f = c >> 16 & 255, g = c >> 8 & 255, m = c & 255, d = (p, b, w, y = 255) => (p & 255 | (b & 255) << 8 | (w & 255) << 16 | (y & 255) << 24) >>> 0;
+      try {
+        const p = d(u, f, g, m);
+        this.imgui.PushStyleColor(this.imgui.Col.ButtonText, p), this.colorsPushed = (this.colorsPushed || 0) + 1;
+      } catch (p) {
+        console.error("Button text color styling failed:", p);
+      }
+    }
+    (a = this.logger) == null || a.logImGui(`ImGui.Button(${JSON.stringify(r)});`);
+    const l = this.imgui.Button(r);
+    this.colorsPushed > 0 && (this.imgui.PopStyleColor(this.colorsPushed), this.colorsPushed = 0), l && t.attributes.onClick && this.handleEvent(t.attributes.onClick, e);
   }
   renderInputText(t, e, s, o) {
-    var p, f;
+    var g, m;
     if (!this.imgui) return;
-    const r = this.generateId(t, e), i = e.state.get(r) || { id: r, value: "", lastFrame: e.frameNumber }, h = t.attributes.label || "", a = t.attributes.hint || "", l = this.getComputedStyle(t, e);
-    l.width && l.width.type === "number" && ((p = this.logger) == null || p.logImGui(`ImGui.SetNextItemWidth(${l.width.value});`), this.imgui.SetNextItemWidth(l.width.value));
+    const r = this.generateId(t, e), i = e.state.get(r) || { id: r, value: "", lastFrame: e.frameNumber }, l = t.attributes.label || "", h = t.attributes.hint || "", a = this.getComputedStyle(t, e);
+    if (a.width && a.width.type === "number" && ((g = this.logger) == null || g.logImGui(`ImGui.SetNextItemWidth(${a.width.value});`), this.imgui.SetNextItemWidth(a.width.value)), a["widget-background-color"] && a["widget-background-color"].type === "color") {
+      const d = a["widget-background-color"].value, p = d >> 24 & 255, b = d >> 16 & 255, w = d >> 8 & 255, y = d & 255, E = (S, I, T, k = 255) => (S & 255 | (I & 255) << 8 | (T & 255) << 16 | (k & 255) << 24) >>> 0;
+      try {
+        const S = E(p, b, w, y);
+        this.imgui.PushStyleColor(this.imgui.Col.FrameBg, S), this.inputColorsPushed = 1;
+      } catch (S) {
+        console.error("InputText background color styling failed:", S), this.inputColorsPushed = 0;
+      }
+    }
     const u = [i.value || ""];
-    (f = this.logger) == null || f.logImGui(`ImGui.InputTextWithHint(${JSON.stringify(h)}, ${JSON.stringify(a)}, /* value */ , 256);`), this.imgui.InputTextWithHint(h, a, u, 256) && (i.value = u[0], i.lastFrame = e.frameNumber, e.state.set(r, i));
+    (m = this.logger) == null || m.logImGui(`ImGui.InputTextWithHint(${JSON.stringify(l)}, ${JSON.stringify(h)}, /* value */ , 256);`), this.imgui.InputTextWithHint(l, h, u, 256) && (i.value = u[0], i.lastFrame = e.frameNumber, e.state.set(r, i)), this.inputColorsPushed > 0 && (this.imgui.PopStyleColor(this.inputColorsPushed), this.inputColorsPushed = 0);
   }
   renderSliderFloat(t, e, s, o) {
-    var p, f;
+    var g, m;
     if (!this.imgui) return;
-    const r = this.generateId(t, e), i = e.state.get(r) || { id: r, value: 0.5, lastFrame: e.frameNumber }, h = t.attributes.label || "", a = parseFloat(t.attributes.min || "0"), l = parseFloat(t.attributes.max || "1"), c = this.getComputedStyle(t, e);
-    c.width && c.width.type === "number" && ((p = this.logger) == null || p.logImGui(`ImGui.SetNextItemWidth(${c.width.value});`), this.imgui.SetNextItemWidth(c.width.value));
+    const r = this.generateId(t, e), i = e.state.get(r) || { id: r, value: 0.5, lastFrame: e.frameNumber }, l = t.attributes.label || "", h = parseFloat(t.attributes.min || "0"), a = parseFloat(t.attributes.max || "1"), c = this.getComputedStyle(t, e);
+    if (c.width && c.width.type === "number" && ((g = this.logger) == null || g.logImGui(`ImGui.SetNextItemWidth(${c.width.value});`), this.imgui.SetNextItemWidth(c.width.value)), c["widget-background-color"] && c["widget-background-color"].type === "color") {
+      const d = c["widget-background-color"].value, p = d >> 24 & 255, b = d >> 16 & 255, w = d >> 8 & 255, y = d & 255, E = (S, I, T, k = 255) => (S & 255 | (I & 255) << 8 | (T & 255) << 16 | (k & 255) << 24) >>> 0;
+      try {
+        const S = E(p, b, w, y);
+        this.imgui.PushStyleColor(this.imgui.Col.FrameBg, S), this.sliderColorsPushed = 1;
+      } catch (S) {
+        console.error("SliderFloat background color styling failed:", S), this.sliderColorsPushed = 0;
+      }
+    }
     const u = [typeof i.value == "number" ? i.value : 0.5];
-    (f = this.logger) == null || f.logImGui(`ImGui.SliderFloat(${JSON.stringify(h)}, ${u[0]}, ${a}, ${l});`), this.imgui.SliderFloat(h, u, a, l) && (i.value = u[0], i.lastFrame = e.frameNumber, e.state.set(r, i));
+    (m = this.logger) == null || m.logImGui(`ImGui.SliderFloat(${JSON.stringify(l)}, ${u[0]}, ${h}, ${a});`), this.imgui.SliderFloat(l, u, h, a) && (i.value = u[0], i.lastFrame = e.frameNumber, e.state.set(r, i)), this.sliderColorsPushed > 0 && (this.imgui.PopStyleColor(this.sliderColorsPushed), this.sliderColorsPushed = 0);
   }
   renderCheckbox(t, e, s, o) {
     var c;
     if (!this.imgui) return;
-    const r = this.generateId(t, e), i = e.state.get(r) || { id: r, value: !1, lastFrame: e.frameNumber }, h = t.attributes.label || "", a = [!!i.value];
-    (c = this.logger) == null || c.logImGui(`ImGui.Checkbox(${JSON.stringify(h)}, ${a[0]});`), this.imgui.Checkbox(h, a) && (i.value = a[0], i.lastFrame = e.frameNumber, e.state.set(r, i));
+    const r = this.generateId(t, e), i = e.state.get(r) || { id: r, value: !1, lastFrame: e.frameNumber }, l = t.attributes.label || "", h = [!!i.value];
+    (c = this.logger) == null || c.logImGui(`ImGui.Checkbox(${JSON.stringify(l)}, ${h[0]});`), this.imgui.Checkbox(l, h) && (i.value = h[0], i.lastFrame = e.frameNumber, e.state.set(r, i));
   }
   renderSameLine(t, e) {
     var r;
@@ -644,27 +681,27 @@ class E {
     var r, i;
     const o = [...e.currentPath];
     e.currentPath.push(t.tag);
-    for (const h of t.children)
+    for (const l of t.children)
       try {
-        if (typeof h == "string")
-          h.trim() && this.imgui && this.imgui.Text(h.trim());
+        if (typeof l == "string")
+          l.trim() && this.imgui && this.imgui.Text(l.trim());
         else {
-          let a;
+          let h;
           try {
-            a = (s == null ? void 0 : s.computeStyle(h, e.currentPath)) || {};
-          } catch (l) {
-            console.error("Style compute error for child element:", h.tag, l), a = {};
+            h = (s == null ? void 0 : s.computeStyle(l, e.currentPath)) || {};
+          } catch (a) {
+            console.error("Style compute error for child element:", l.tag, a), h = {};
           }
           try {
-            this.render(h, e, a, s);
-          } catch (l) {
-            const c = l instanceof Error ? l.message : String(l);
-            console.error(`Failed to render child element: ${h.tag}`, l), (r = this.logger) == null || r.logImGui(`// Error: Failed to render ${h.tag} - ${c}`);
+            this.render(l, e, h, s);
+          } catch (a) {
+            const c = a instanceof Error ? a.message : String(a);
+            console.error(`Failed to render child element: ${l.tag}`, a), (r = this.logger) == null || r.logImGui(`// Error: Failed to render ${l.tag} - ${c}`);
           }
         }
-      } catch (a) {
-        const l = a instanceof Error ? a.message : String(a);
-        console.error("Critical error rendering child:", a), (i = this.logger) == null || i.logImGui(`// Critical Error: Child rendering failed - ${l}`);
+      } catch (h) {
+        const a = h instanceof Error ? h.message : String(h);
+        console.error("Critical error rendering child:", h), (i = this.logger) == null || i.logImGui(`// Critical Error: Child rendering failed - ${a}`);
       }
     e.currentPath = o;
   }
@@ -689,17 +726,17 @@ class E {
   }
 }
 function q() {
-  return new E();
+  return new C();
 }
 class H {
   constructor(t) {
-    this.eventHandlers = /* @__PURE__ */ new Map(), this.logger = null, this.imgui = null, this.imguiImplWeb = null, this.stateManager = new k(), this.widgetRenderers = new E(t), t && (this.logger = t);
+    this.eventHandlers = /* @__PURE__ */ new Map(), this.logger = null, this.imgui = null, this.imguiImplWeb = null, this.stateManager = new P(), this.widgetRenderers = new C(t), t && (this.logger = t);
   }
   /**
    * Inject or replace logger at runtime
    */
   setLogger(t) {
-    this.logger = t, this.widgetRenderers = new E(t);
+    this.logger = t, this.widgetRenderers = new C(t);
   }
   /**
    * Register an event handler
@@ -728,7 +765,7 @@ class H {
    * Parse and render TXML with TSS styling
    */
   render(t, e = "") {
-    var s, o, r, i, h, a;
+    var s, o, r, i, l, h;
     try {
       if ((s = this.logger) == null || s.startFrame(), typeof t != "string")
         throw new Error(`render: txml must be a string, got ${typeof t}`);
@@ -739,12 +776,12 @@ class H {
         return;
       }
       if (!this.imgui || !this.imguiImplWeb) {
-        const p = "ImGui not initialized. Call setImGui() first.";
-        console.error("TXML/TSS render error:", p), (o = this.logger) == null || o.logImGui(`// Error: ${p}`);
+        const g = "ImGui not initialized. Call setImGui() first.";
+        console.error("TXML/TSS render error:", g), (o = this.logger) == null || o.logImGui(`// Error: ${g}`);
         return;
       }
-      const l = j(t);
-      if (!l) {
+      const a = j(t);
+      if (!a) {
         console.error("Failed to parse TXML - using fallback");
         return;
       }
@@ -753,17 +790,17 @@ class H {
         console.error("Failed to parse TSS - using fallback");
         return;
       }
-      const u = new $(c);
+      const u = new W(c);
       this.stateManager.beginFrame();
-      const g = this.stateManager.createContext(c, this.eventHandlers);
-      if (!g) {
+      const f = this.stateManager.createContext(c, this.eventHandlers);
+      if (!f) {
         console.error("Failed to create render context");
         return;
       }
-      console.log("Starting to render XML element:", l.tag), console.log("XML element children count:", l.children.length), this.renderElement(l, g, u), console.log("Finished rendering XML element"), this.stateManager.endFrame(), (r = this.logger) == null || r.endFrame(), (h = (i = this.logger) == null ? void 0 : i.flush) == null || h.call(i);
-    } catch (l) {
-      const c = l instanceof Error ? l.message : String(l);
-      console.error("TXML/TSS render error:", c), (a = this.logger) == null || a.logImGui(`// Error: ${c}`);
+      console.log("Starting to render XML element:", a.tag), console.log("XML element children count:", a.children.length), this.renderElement(a, f, u), console.log("Finished rendering XML element"), this.stateManager.endFrame(), (r = this.logger) == null || r.endFrame(), (l = (i = this.logger) == null ? void 0 : i.flush) == null || l.call(i);
+    } catch (a) {
+      const c = a instanceof Error ? a.message : String(a);
+      console.error("TXML/TSS render error:", c), (h = this.logger) == null || h.logImGui(`// Error: ${c}`);
     }
   }
   /**
@@ -800,11 +837,11 @@ class H {
 function Z() {
   return new H();
 }
-function M() {
+function G() {
   const n = globalThis;
   return n.__txmlJsxHandlers || (n.__txmlJsxHandlers = /* @__PURE__ */ Object.create(null)), n.__txmlJsxHandlers;
 }
-function A() {
+function N() {
   const n = globalThis;
   return typeof n.__txmlJsxHandlerSeq != "number" && (n.__txmlJsxHandlerSeq = 0), n.__txmlJsxHandlerSeq += 1, `jsx_fn_${n.__txmlJsxHandlerSeq}`;
 }
@@ -830,8 +867,8 @@ function D(n, t, e) {
         if (r === "key")
           continue;
         if (typeof i == "function" && /^on[A-Z]/.test(r)) {
-          const h = M(), a = A();
-          h[a] = i, s[r] = a;
+          const l = G(), h = N();
+          l[h] = i, s[r] = h;
           continue;
         }
         s[r] = String(i);
@@ -854,16 +891,16 @@ function K(n, t, ...e) {
   }), t)
     for (const [r, i] of Object.entries(t))
       if (r === "children") {
-        Array.isArray(i) ? i.forEach((h) => {
-          h != null && h !== !1 && (typeof h == "number" || typeof h == "boolean" ? o.push(String(h)) : o.push(h));
+        Array.isArray(i) ? i.forEach((l) => {
+          l != null && l !== !1 && (typeof l == "number" || typeof l == "boolean" ? o.push(String(l)) : o.push(l));
         }) : i != null && (typeof i == "number" || typeof i == "boolean" ? o.push(String(i)) : o.push(i));
         continue;
       } else {
         if (r === "key")
           continue;
         if (typeof i == "function" && /^on[A-Z]/.test(r)) {
-          const h = M(), a = A();
-          h[a] = i, s[r] = a;
+          const l = G(), h = N();
+          l[h] = i, s[r] = h;
           continue;
         }
         s[r] = String(i);
@@ -874,7 +911,7 @@ function K(n, t, ...e) {
     children: o
   };
 }
-const Q = Symbol("Fragment"), I = /* @__PURE__ */ new Set([
+const Q = Symbol("Fragment"), M = /* @__PURE__ */ new Set([
   "App",
   "Head",
   "Body",
@@ -887,7 +924,7 @@ const Q = Symbol("Fragment"), I = /* @__PURE__ */ new Set([
   "SameLine",
   "Separator",
   "Spacing"
-]), T = /* @__PURE__ */ new Set([
+]), A = /* @__PURE__ */ new Set([
   "title",
   "label",
   "hint",
@@ -904,19 +941,19 @@ const Q = Symbol("Fragment"), I = /* @__PURE__ */ new Set([
   "background-color",
   "text-color"
 ]);
-function O(n) {
+function V(n) {
   if (!n || typeof n != "string")
     throw new Error("Invalid tag name: must be a non-empty string");
   const t = n.replace(/[<>'"&]/g, "");
-  return I.has(t) ? t : (console.warn(`Unknown tag: ${t}. Allowed tags: ${Array.from(I).join(", ")}`), "UnknownTag");
+  return M.has(t) ? t : (console.warn(`Unknown tag: ${t}. Allowed tags: ${Array.from(M).join(", ")}`), "UnknownTag");
 }
-function V(n) {
+function O(n) {
   if (!n || typeof n != "string")
     throw new Error("Invalid attribute name: must be a non-empty string");
   const t = n.replace(/[<>'"&]/g, "");
-  return T.has(t) ? t : (console.warn(`Unknown attribute: ${t}. Allowed attributes: ${Array.from(T).join(", ")}`), "unknown-attr");
+  return A.has(t) ? t : (console.warn(`Unknown attribute: ${t}. Allowed attributes: ${Array.from(A).join(", ")}`), "unknown-attr");
 }
-function W(n) {
+function _(n) {
   if (n == null)
     return "";
   if (typeof n == "string" || typeof n == "number" || typeof n == "boolean")
@@ -929,31 +966,31 @@ function W(n) {
     throw new Error(`jsxToTXML: element.attributes must be an object, got ${typeof n.attributes}`);
   if (!n.children || !Array.isArray(n.children))
     throw new Error(`jsxToTXML: element.children must be an array, got ${typeof n.children}`);
-  const { tag: t, attributes: e, children: s } = n, o = O(t), r = Object.entries(e || {}).map(([h, a]) => {
-    const l = V(h), c = String(a).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    return `${l}="${c}"`;
-  }).join(" "), i = (s || []).map((h) => W(h)).join("");
+  const { tag: t, attributes: e, children: s } = n, o = V(t), r = Object.entries(e || {}).map(([l, h]) => {
+    const a = O(l), c = String(h).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return `${a}="${c}"`;
+  }).join(" "), i = (s || []).map((l) => _(l)).join("");
   return !s || s.length === 0 ? `<${o}${r ? " " + r : ""} />` : `<${o}${r ? " " + r : ""}>${i}</${o}>`;
 }
 let J = 0;
-const w = /* @__PURE__ */ new Map();
+const $ = /* @__PURE__ */ new Map();
 function Y(n) {
   if (n == null)
     throw new Error("useState: initialValue cannot be null or undefined");
   const t = `state_${J++}`;
-  w.has(t) || w.set(t, typeof n == "function" ? n() : n);
+  $.has(t) || $.set(t, typeof n == "function" ? n() : n);
   const e = (s) => {
     if (s == null)
       throw new Error("useState: setValue cannot accept null or undefined");
-    const o = w.get(t), r = typeof s == "function" ? s(o) : s;
-    w.set(t, r);
+    const o = $.get(t), r = typeof s == "function" ? s(o) : s;
+    $.set(t, r);
   };
-  return [w.get(t), e];
+  return [$.get(t), e];
 }
 function tt(n) {
   return {
     render: (t) => {
-      const e = W(t);
+      const e = _(t);
       return console.log("Rendered TXML:", e), n && (n.textContent = e), e;
     }
   };
@@ -1001,19 +1038,19 @@ export {
   et as DefaultConsoleLogger,
   Q as Fragment,
   st as NoopLogger,
-  k as StateManager,
-  $ as StyleEngine,
-  m as TSSParseError,
-  d as TXMLParseError,
+  P as StateManager,
+  W as StyleEngine,
+  v as TSSParseError,
+  x as TXMLParseError,
   H as TXMLTSSRenderer,
-  E as WidgetRenderers,
+  C as WidgetRenderers,
   Z as createRenderer,
   tt as createRoot,
   z as createStateManager,
   U as createStyleEngine,
   q as createWidgetRenderers,
   D as jsx,
-  W as jsxToTXML,
+  _ as jsxToTXML,
   K as jsxs,
   X as parseTSS,
   j as parseTXML,

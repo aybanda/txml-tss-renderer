@@ -8,6 +8,7 @@ import { parseTSS } from './tss-parser.js';
 import { StateManager } from './state-manager.js';
 import { StyleEngine } from './style-engine.js';
 import { WidgetRenderers } from './widget-renderers.js';
+import { safeParse, safeRender, ErrorContext } from './error-handler.js';
 
 export interface ImGuiInstance {
   Begin: (name: string, p_open?: boolean[], flags?: number) => boolean;
@@ -98,7 +99,12 @@ export class TXMLTSSRenderer {
    * Parse and render TXML with TSS styling
    */
   render(txml: string, tss: string = ''): void {
-    try {
+    const errorContext: ErrorContext = {
+      component: 'TXMLTSSRenderer',
+      operation: 'render'
+    };
+
+    return safeRender(() => {
       this.logger?.startFrame();
       
       // Runtime type validation
@@ -122,17 +128,31 @@ export class TXMLTSSRenderer {
         return;
       }
       
-      // Parse TXML
-      const xmlElement = parseTXML(txml);
+      // Parse TXML with error handling
+      const xmlElement = safeParse(
+        () => parseTXML(txml),
+        { ...errorContext, operation: 'parseTXML', input: txml },
+        () => {
+          console.error('Failed to parse TXML - using fallback');
+          return null;
+        }
+      );
+      
       if (!xmlElement) {
-        console.error('Failed to parse TXML - using fallback');
         return;
       }
       
-      // Parse TSS
-      const stylesheet = parseTSS(tss);
+      // Parse TSS with error handling
+      const stylesheet = safeParse(
+        () => parseTSS(tss),
+        { ...errorContext, operation: 'parseTSS', input: tss },
+        () => {
+          console.error('Failed to parse TSS - using fallback');
+          return null;
+        }
+      );
+      
       if (!stylesheet) {
-        console.error('Failed to parse TSS - using fallback');
         return;
       }
       
@@ -149,51 +169,58 @@ export class TXMLTSSRenderer {
         return;
       }
       
-      // Render the XML
+      // Render the XML with error handling
       console.log('Starting to render XML element:', xmlElement.tag);
       console.log('XML element children count:', xmlElement.children.length);
-      this.renderElement(xmlElement, context, styleEngine);
+      
+      safeRender(
+        () => this.renderElement(xmlElement, context, styleEngine),
+        { ...errorContext, operation: 'renderElement', input: xmlElement }
+      );
+      
       console.log('Finished rendering XML element');
       
       // End frame
       this.stateManager.endFrame();
       this.logger?.endFrame();
       this.logger?.flush?.();
-      
-         } catch (error) {
-       const errorMessage = error instanceof Error ? error.message : String(error);
-       console.error('TXML/TSS render error:', errorMessage);
-       this.logger?.logImGui(`// Error: ${errorMessage}`);
-     }
+    }, errorContext);
   }
 
   /**
    * Render a single element
    */
   private renderElement(element: TXMLElement, context: RenderContext, styleEngine: StyleEngine): void {
-    if (!element || !context) {
-      console.error('Invalid element or context');
-      return;
-    }
+    const errorContext: ErrorContext = {
+      component: 'TXMLTSSRenderer',
+      operation: 'renderElement',
+      input: element
+    };
+
+    return safeRender(() => {
+      if (!element || !context) {
+        throw new Error('Invalid element or context');
+      }
+      
+      console.log(`Rendering element: ${element.tag} with ${element.children.length} children`);
     
-    console.log(`Rendering element: ${element.tag} with ${element.children.length} children`);
-    
-    try {
       // Compute styles for this element
-      const computedStyle = styleEngine.computeStyle(element, context.currentPath);
+      const computedStyle = safeRender(
+        () => styleEngine.computeStyle(element, context.currentPath),
+        { ...errorContext, operation: 'computeStyle' },
+        () => ({}) // Fallback to empty styles
+      );
+      
       console.log(`Computed style for ${element.tag}:`, computedStyle);
       
       // Render the element with computed styles
-      this.widgetRenderers.render(element, context, computedStyle, styleEngine);
-      console.log(`Finished rendering element: ${element.tag}`);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`Failed to render element: ${element.tag}`, error);
-      this.logger?.logImGui(`// Error: Failed to render ${element.tag} - ${errorMessage}`);
+      safeRender(
+        () => this.widgetRenderers.render(element, context, computedStyle, styleEngine),
+        { ...errorContext, operation: 'widgetRender' }
+      );
       
-      // Don't re-throw - let the application continue
-      // This ensures one broken element doesn't crash the entire UI
-    }
+      console.log(`Finished rendering element: ${element.tag}`);
+    }, errorContext);
   }
 
   /**

@@ -1,5 +1,9 @@
 // JSX Demo with build-time compilation
 import { jsx, jsxs, Fragment, TXMLTSSRenderer, DefaultConsoleLogger } from '../dist/index.js';
+import { setTestMode } from '../dist/index.js';
+
+// Enable test mode for build-time demo
+setTestMode(true);
 
 // TSS Styles (correct TSS syntax with scope, variables, and proper property names)
 const tssStyles = `
